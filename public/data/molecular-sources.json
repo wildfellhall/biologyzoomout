@@ -1,0 +1,16 @@
+{
+  "retrievedOn": "2026-11-18",
+  "moleculeCount": 29,
+  "aminoAcidCount": 20,
+  "atoms": 647,
+  "formulaAndBondChecks": "passed",
+  "proteinAtoms": 327,
+  "proteinResidues": 46,
+  "skipped": [
+    {
+      "id": "dppc",
+      "name": "Dipalmitoylphosphatidylcholine",
+      "reason": "HTTP 404: https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/Dipalmitoylphosphatidylcholine/JSON?record_type=3d"
+    }
+  ]
+}

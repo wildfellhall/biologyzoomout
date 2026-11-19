@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {stages,modelInfo,homeStage,nodesAtStage,relationsFor} from '../src/content.js';
+const ontology=JSON.parse(fs.readFileSync(new URL('../public/data/ontology.json',import.meta.url)));
+const molecules=JSON.parse(fs.readFileSync(new URL('../public/data/molecules.json',import.meta.url)));
+const protein=JSON.parse(fs.readFileSync(new URL('../public/data/protein.json',import.meta.url)));
+test('Every original ontology node is reachable through a scale and library',()=>{assert.equal(ontology.nodes.length,234);const reachable=new Set(stages.flatMap((_,i)=>nodesAtStage(ontology,i).map(n=>n.id)));assert.equal(reachable.size,234);for(const n of ontology.nodes)assert.ok(stages[homeStage(n)]);});
+test('Every model hotspot cross-reference resolves to an original node',()=>{const ids=new Set(ontology.nodes.map(n=>n.id));for(const m of Object.values(modelInfo))for(const id of m.nodes)assert.ok(ids.has(id),id);});
+test('All 496 typed relationships remain navigable from both endpoints',()=>{assert.equal(ontology.edges.length,496);for(const edge of ontology.edges){assert.ok(relationsFor(ontology,edge.source).some(e=>e.id===edge.id&&e.other===edge.target));assert.ok(relationsFor(ontology,edge.target).some(e=>e.id===edge.id&&e.other===edge.source));}});
+test('Molecular coordinates, formulas, and bond references agree',()=>{assert.equal(molecules.filter(m=>m.family==='amino-acids').length,20);assert.equal(new Set(molecules.map(m=>m.id)).size,molecules.length);for(const m of molecules){assert.match(m.source.url,/pubchem/);const atoms=new Map(m.atoms.map(a=>[a.id,a]));const counts={};for(const a of m.atoms){assert.ok([a.x,a.y,a.z].every(Number.isFinite));counts[a.element]=(counts[a.element]||0)+1;}const expected={};for(const [,el,num] of m.formula.matchAll(/([A-Z][a-z]?)(\d*)/g))expected[el]=(expected[el]||0)+Number(num||1);assert.deepEqual(counts,expected,m.id);for(const b of m.bonds){assert.ok(atoms.has(b.a)&&atoms.has(b.b));assert.ok(b.order>=1&&b.order<=3);}}});
+test('Protein backbone retains its experimental structure identity',()=>{assert.equal(protein.pdb,'1CRN');assert.equal(protein.backbone.length,46);assert.equal(protein.atoms.length,327);assert.ok(protein.backbone.every(a=>[a.x,a.y,a.z].every(Number.isFinite)));});
