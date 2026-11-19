@@ -13,6 +13,7 @@ Open **http://127.0.0.1:5173/**. This project is local-only. Keep the developmen
 
 ## Explore
 
+- **Learn** opens four starter lessons: membrane transport, gradient-driven ATP production, light reactions, and natural selection. Each has six steps combining a worked explanation, a prediction, the existing 3D reaction, transfer practice, and written recall. The explorer still contains the complete ontology; these lessons are an initial subset, not a full AP course.
 - Open **Paths** in the header (the current path name on desktop). Seventeen routes follow biological components, compartments, and ecological membership. DNA follows chromatin → chromosome → nucleus; membrane lipids follow phospholipid → bilayer → cell; chlorophyll follows photosystem → thylakoid → chloroplast. The chooser previews the complete route before returning to the scene. Additional routes cover starch, RNA, free and ER-bound ribosomes, organellar DNA, ATP synthases, cell water, enzymes, seed protein, and woodland trees.
 - Drag to rotate. Scroll or pinch to zoom continuously along the selected route. The rail, slider, plus/minus buttons, and arrow keys follow that same route. Home/End use the route's actual endpoints.
 - Select **Plant** or **Animal** where both apply. Leaf cells lead to leaves, flowering plants, and plant populations. Animal cells lead to epithelial tissue, a rabbit, and a rabbit population. Shared structures retain their position when changing paths; incompatible choices return to the new path's beginning.
@@ -39,7 +40,17 @@ Open **http://127.0.0.1:5173/**. This project is local-only. Keep the developmen
 
 `src/scene.js` normalizes and caches models, blends adjacent scenes during continuous zoom, and handles rotation, picking, pinch gestures, inspection, and playback. `src/structures.js` defines inspection links separately from curriculum relationships. `src/processes.js` holds reversible process states, model assumptions, and biological references. These transitions illustrate changes of biological organization; they do not claim that every scene is physically nested in one specimen.
 
-`src/main.js` handles scale navigation, automatic process selection, model selection, the node tray, and local review state. `src/node-detail.js` renders the original node records and crosswalks. `src/styles.css` uses system fonts and a full-window layout. The visual identity uses warm paper, forest-green type, a vermilion progress accent, a serif wordmark, and an original expanding-ring symbol repeated in the favicon. Secondary controls live in the path and settings dialogs; process explanations expand on demand. There is no permanent sidebar, page introduction, tagline, or footer.
+`src/main.js` handles scale navigation, automatic process selection, model selection, the node tray, and local review state. `src/node-detail.js` renders the original node records and crosswalks. `src/styles.css` uses system fonts and a full-window layout. The visual identity uses warm paper, forest-green type, a vermilion progress accent, a serif wordmark, and an original expanding-ring symbol repeated in the favicon. Secondary controls live in the path and settings dialogs. A single reaction fact follows playback; additional controls expand on demand. There is no permanent sidebar or page introduction.
+
+## Guided learning
+
+`src/lessons.js` contains original, source-linked lessons referencing unchanged ontology IDs. `src/lesson-ui.js` presents one step below the canvas and reuses the existing renderer, reaction controls, and simulation states. The model remains rotatable. Observation stages explain changes as they occur and can be revisited with the stage buttons or scrubber. The selection lesson changes the existing model's fitness scenario while holding its starting allele frequencies constant. Hypothetical inhibitor and uncoupler questions are identified as reasoning tasks, not newly simulated reaction conditions.
+
+Practice questions give feedback for each alternative. Written recall requires a response before revealing a comparison and a two-point self-check; it is not automatically graded. First attempts remain recorded when an answer is corrected. Lesson completion requires responses to all three checkpoints and does not imply mastery. Opening a new path or inspecting another structure returns to exploration, while **Learn** resumes the saved lesson step. Links such as `/#lesson=gradient&step=2` open a particular lesson stage.
+
+The design follows the [IES practice guide on organizing instruction and study](https://ies.ed.gov/ncee/wwc/PracticeGuide/1): retrieval, delayed review, worked examples alternating with practice, and connecting verbal and visual explanations. Evidence strength differs across recommendations; the app itself has not been evaluated for learning outcomes. Biological references appear in each lesson. The full model-source qualifications remain available through Model information.
+
+Progress and written responses are stored only in this browser under `biology-zoomout-lessons-v1`, separately from ontology reading markers. Completed checkpoints enter a review queue for the following day. Successful due reviews use authored intervals of 3, 7, and then 21 days; an incorrect or “need practice” response returns after one day. These intervals are product choices, not a claim of an optimal scientific schedule. Extra practice before a due date does not postpone it. The app shows due reviews when reopened; it does not send notifications or synchronize across devices. When storage is unavailable, learning still works for the current session.
 
 ## Scientific provenance
 
@@ -67,6 +78,7 @@ node tests/interactive-models.mjs
 node tests/autoplay-browser.mjs
 node tests/world-details.mjs
 node tests/organisms-browser.mjs
+node tests/lessons-browser.mjs
 ```
 
 The browser regressions default to local Google Chrome on macOS. Set `CHROME_PATH` to another installed Chromium browser and `TEST_BASE_URL` to a running preview URL when needed. Use a production preview while editing to avoid Vite reloads interrupting a test. Tests cover every named route, plant/animal context, path switching, original nodes, every cell structure choice, mesh picking, nested inspection, all ten animations, scrubbing, playback, selection scenarios, phone layout, reduced motion, and WebGL fallback. The autoplay suite additionally verifies automatic entry, process replacement during forward/reverse zoom, manual pause across views, saved preferences, dialog suspension, and structure-only mode. Pure-model tests verify graph validity, compatible molecular routes, organelle parents, ontology integrity, frequency conservation, diffusion paths and particle counts, integration convergence, and deterministic scrubbing. Screenshots and reports are written to ignored `test-results/pathways/`, `test-results/interactive/`, and `test-results/atlas/`.
@@ -76,3 +88,5 @@ The previous hosting manifest has been removed. Local build output is `dist/`. R
 The world-details regression checks feature picking, contextual notes, reference and node links, valid inspection routes, explanation dismissal, all new scene details, and phone layouts. It writes screenshots and a report to `test-results/world/`.
 
 The organism tests check finite body geometry, connected rabbit paws, fur bounds, closed leaf tips, outward-facing branches, all eight larger-scale views, inspection returns, lighting restoration, reversible ecological playback, reduced motion, automatic playback, and phone layouts. Their screenshots and report are in `test-results/organisms/`.
+
+Lesson tests check all model/route/node references, compatible reactions, first-attempt records, recall gating, completion, resume after reload, due dates, repeat practice, corrupt storage, feedback, environment comparisons, AP-node access, and phone layouts. Visual results are in `test-results/lessons/`. Rendering tests also protect custom material shaders when views are cloned and align reaction facts with binding, bond-change, and proton-return events.

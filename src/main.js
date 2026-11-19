@@ -1,10 +1,13 @@
 import './styles.css';
+import './lessons.css';
 import { BiologyScene, elements } from './scene.js';
 import { stages, modelInfo, homeStage, nodesAtStage, formulaHTML } from './content.js';
 import { esc, nodeDetail } from './node-detail.js';
 import { structureInfo, childrenOf } from './structures.js';
 import { processes, processesFor, phaseStarts } from './processes.js';
 import {fieldNotes,featureNotes} from './field-notes.js';
+import {createLessonUI} from './lesson-ui.js';
+import {sampleProcess} from './processes.js';
 import { pathways, pathwayInfo, buildPath, routeForModel, pathForMolecule, supportsMolecule, pathStep } from './pathways.js';
 
 const $ = selector => document.querySelector(selector);
@@ -104,7 +107,7 @@ try {
     <dialog id="node-dialog" aria-labelledby="node-title"><div class="dialog-toolbar"><button id="node-back">← Back</button><button class="close-dialog icon-button" aria-label="Close learning node">${icon('close')}</button></div><div id="node-detail"></div></dialog>
     <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title"><div class="dialog-toolbar"><h2 id="info-title">Model information</h2><button class="close-dialog icon-button" aria-label="Close model information">${icon('close')}</button></div><div class="info-body"><details class="settings" open><summary>View settings</summary><div class="view-controls" aria-label="3D controls"><button id="pause-btn" aria-label="Pause rotation">${icon('pause')}<span>Rotation</span></button><button id="labels-btn" aria-label="Show model labels" aria-pressed="false">${icon('labels')}<span>Labels</span></button><button id="reset-btn" aria-label="Reset view">${icon('reset')}<span>Reset view</span></button></div><label class="autoplay-setting"><input id="autoplay-setting" type="checkbox"> Play processes automatically</label><select id="process-select" aria-label="Choose an animation" hidden></select><div id="representation-controls"><button data-style="ball" aria-pressed="true">Ball & stick</button><button data-style="space" aria-pressed="false">Space filling</button></div></details><div id="model-information"></div><details><summary>Controls</summary><dl class="shortcuts"><dt>Scroll / pinch</dt><dd>Change scale</dd><dt>Drag</dt><dd>Rotate</dd><dt>← / →</dt><dd>Previous / next scale</dd><dt>Space</dt><dd>Pause / resume</dd><dt>/</dt><dd>Search nodes</dd><dt>Esc</dt><dd>Close</dd></dl></details><details><summary>Framework & sources</summary><p>AP Biology, 2026–27. All 234 original nodes and 496 learning relationships are available. Zoom paths follow biological components, compartments, and ecological membership. They are separate from the ontology’s prerequisite relationships.</p><ul class="source-list">${ontology.sources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)} ↗</a><small>${esc(source.edition)}</small></li>`).join('')}</ul><p>Each adjacent zoom step has an explicit biological relationship. Building-block and catalytic-binding steps differ from literal containment; the relationship notes below identify these cases. Models use representative dimensions and are not a calibrated reconstruction of one specimen.</p><p>Small molecules use published PubChem coordinates; crambin uses RCSB PDB 1CRN. Cell and organism scenes are procedural cutaways. Earth uses a satellite-derived texture. Colors, abundance, and biochemical playback times are illustrative; animation models and assumptions are documented above.</p><p>Habitat materials use local Poly Haven photographic maps: <a href="https://polyhaven.com/a/bark_brown_02" target="_blank" rel="noopener">Bark Brown 02</a> and <a href="https://polyhaven.com/a/forrest_ground_01" target="_blank" rel="noopener">Forest Ground 01</a> by Rob Tuytel, <a href="https://polyhaven.com/a/forest_ground_04" target="_blank" rel="noopener">Forest Ground 04</a> by Rob Tuytel and Rico Cilliers, and <a href="https://polyhaven.com/a/forest_slope" target="_blank" rel="noopener">Forest Slope</a> HDR lighting by Andreas Mischok. All are <a href="https://polyhaven.com/license" target="_blank" rel="noopener">CC0</a>. Organism shapes remain procedural illustrations, not scanned specimens. <a href="/textures/natural/sources.json" target="_blank" rel="noopener">Asset records ↗</a></p><a href="/data/ontology.json" download="ap-biology-ontology.json">Download ontology ↓</a></details><details><summary>Source qualifications</summary>${ontology.source_issues.map(issue=>`<p><b>${esc(issue.requirement)}</b> ${esc(issue.issue)} ${esc(issue.resolution)}</p>`).join('')}<p>Six classroom and laboratory implementation conditions remain unverified. Reviewed markers are local reading records, not mastery scores.</p></details></div></dialog>`;
 
-  let scene;
+  let scene,lessonUI,lessonNavigation=false;
   scene = new BiologyScene($('#scene'), {
     onSelect: selection => {
       if (selection.feature) openFieldNote(selection.feature);
@@ -148,6 +151,7 @@ try {
   }
 
   function setRoute(next,{model=null,index=null,molecule=null,keepHistory=false}={}){
+    if(lessonUI?.active&&!lessonNavigation)lessonUI.exit({update:false});
     if(!keepHistory)state.focusStack=[];
     route=next;state.pathId=route.id;state.organism=route.organism;
     if(molecule&&moleculeMap.has(molecule))state.molecule=molecule;
@@ -257,6 +261,7 @@ try {
   }
   let hashTimer;
   function moveScale(position,immediate=false){
+    if(lessonUI?.active)return;
     state.target=Math.max(0,Math.min(maxPosition(),position));scene.seek(state.target,immediate);
     $('#gesture-hint').classList.add('dismissed');clearTimeout(hashTimer);hashTimer=setTimeout(updateHash,180);
   }
@@ -265,10 +270,13 @@ try {
     if(route.steps[0].id==='molecules')parameters.set('molecule',state.molecule);
     if(Math.abs(state.target-index)>.001)parameters.set('zoom',state.target.toFixed(3));
     if(state.selectedNode)parameters.set('node',state.selectedNode);
+    if(lessonUI?.active&&lessonUI.active!=='review'){parameters.set('lesson',lessonUI.active);parameters.set('step',lessonUI.stepIndex);}
     history.replaceState(null,'',`#${parameters}`);
   }
   function readHash(){
     clearTimeout(hashTimer);const parameters=new URLSearchParams(location.hash.slice(1));state.focusStack=[];
+    if(lessonUI?.has(parameters.get('lesson'))){lessonUI.start(parameters.get('lesson'),{step:parameters.has('step')?Number(parameters.get('step')):null});if(nodeMap.has(parameters.get('node')))openNode(parameters.get('node'));return;}
+    if(lessonUI?.active)lessonUI.exit({update:false});
     const requestedMolecule=moleculeMap.get(parameters.get('molecule')),organism=parameters.get('organism')==='animal'?'animal':'plant';
     let next=buildPath('starch',organism),model=null,index=null;
     if(parameters.has('path')){
@@ -350,6 +358,7 @@ try {
   }
 
   function renderProcessFrame(snapshot,playing) {
+    lessonUI?.onFrame(snapshot);
     const visible=!!snapshot&&!!scene?.renderer;
     $('#process-panel').hidden=!visible;document.body.classList.toggle('process-active',visible);
     if(!visible)return;
@@ -396,7 +405,7 @@ try {
   $('#field-note-close').onclick=closeFieldNote;
   $('#feature-select').onchange=event=>{state.noteFeature=event.target.value||null;renderFieldNote();};
   for(const button of document.querySelectorAll('[data-note-tab]'))button.onclick=()=>{state.noteTab=button.dataset.noteTab;renderFieldNote();};
-  $('#home').onclick=()=>moveScale(0);
+  $('#home').onclick=()=>{lessonUI?.exit();moveScale(0);};
   $('#paths-toggle').onclick=()=>{renderPathControls();$('#paths-dialog').showModal();};
   $('#explore-path').onclick=()=>$('#paths-dialog').close();
   $('#autoplay-setting').checked=state.autoplay;
@@ -449,7 +458,7 @@ try {
   for(const button of document.querySelectorAll('.close-dialog'))button.onclick=()=>button.closest('dialog').close();
   for(const dialog of document.querySelectorAll('dialog')){
     dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dialog.close();});
-    dialog.addEventListener('close',()=>{scene.setPaused(state.paused);});
+    dialog.addEventListener('close',()=>{scene.setPaused(lessonUI?.active?true:state.paused);});
   }
   $('#node-dialog').addEventListener('close',()=>{state.selectedNode=null;state.history=[];updateHash();});
   document.addEventListener('keydown',event=>{
@@ -458,6 +467,12 @@ try {
     if(event.key==='Escape'&&state.drawer){toggleBrowser(false);return;}
     if(event.key==='Escape'&&state.focusStack.length){leaveStructure();return;}
     if(event.target.matches('input,select,textarea'))return;
+    if(lessonUI?.active){
+      if(event.key==='Escape'){lessonUI.exit();return;}
+      if(event.key==='ArrowRight'){event.preventDefault();lessonUI.next();return;}
+      if(event.key==='ArrowLeft'){event.preventDefault();lessonUI.back();return;}
+      if(event.code==='Space'&&event.target===document.body){event.preventDefault();if(lessonUI.canPlay())$('#process-play').click();return;}
+    }
     if(event.key==='/'){event.preventDefault();toggleBrowser(true,true);}
     if(event.key==='ArrowRight'){event.preventDefault();$('#zoom-out').click();}
     if(event.key==='ArrowLeft'){event.preventDefault();$('#zoom-in').click();}
@@ -468,6 +483,23 @@ try {
   const processResize=new ResizeObserver(()=>{
     if(!$('#process-panel').hidden)document.body.style.setProperty('--process-clearance',`${$('#process-panel').offsetHeight+30}px`);
   });processResize.observe($('#process-panel'));
+  $('.top-actions').insertAdjacentHTML('afterbegin','<button id="learn-toggle" aria-haspopup="dialog" aria-controls="lesson-dialog">Learn</button>');
+  lessonUI=createLessonUI({scene,
+    navigate(view){
+      lessonNavigation=true;
+      try{setRoute(buildPath(view.path,view.organism),{model:view.model});}finally{lessonNavigation=false;}
+      activateProcess(view.process);scene.setEnvironment(view.environment||'favor-a');$('#selection-environment').value=view.environment||'favor-a';
+      scene.playProcess(false);scene.seekProcess(view.at||0);
+      if(view.autoplay&&state.autoplay&&!state.animationPaused&&!scene.reducedMotion)scene.playProcess(true);
+    },
+    canAutoplay:()=>state.autoplay&&!scene.reducedMotion,
+    snapshot:()=>sampleProcess(scene.process,scene.processProgress,scene.environment),
+    nodeLabel:id=>nodeMap.get(id)?.label||id,openNode,
+    closeOverlays(){closeFieldNote();if(state.drawer)toggleBrowser(false);$('#process-details').hidden=true;$('#process-details-toggle').setAttribute('aria-expanded','false');$('#picked-atom').hidden=true;},
+    onChange(){updateHash();$('#learn-toggle').classList.toggle('active',!!lessonUI?.active);},
+    onExit(){scene.setPaused(state.paused);$('#learn-toggle').classList.remove('active');},
+  });
+  $('#learn-toggle').onclick=()=>lessonUI.openCatalog();
   updatePause();readHash();
   window.addEventListener('hashchange',readHash);
 } catch(error) {
