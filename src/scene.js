@@ -21,7 +21,7 @@ export class BiologyScene {
   this.container=container;this.onSelect=onSelect;this.paused=matchMedia('(prefers-reduced-motion: reduce)').matches;this.labelsVisible=true;this.flowVisible=true;this.molecularStyle='ball';this.root=new THREE.Group();this.annotations=[];this.elapsed=0;this.selectedModel='';this.modelData=null;this.protein=null;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#f0f1e8');
   this.camera=new THREE.PerspectiveCamera(38,1,.05,300);this.camera.position.set(7,4,10);
   try {this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});} catch(error){onError(error);return;}
-  this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.05;this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.05;this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFShadowMap;
   this.renderer.domElement.setAttribute('aria-label','Interactive 3D biology model. Drag to rotate. Use the labeled controls to change scale and model.');this.renderer.domElement.setAttribute('role','img');container.prepend(this.renderer.domElement);
   this.labelLayer=document.createElement('div');this.labelLayer.className='model-labels';container.append(this.labelLayer);
   this.scene.add(new THREE.HemisphereLight('#ffffff','#a5b19c',2.4));
