@@ -1,38 +1,58 @@
 # Biology Zoomout
 
-An interactive AP Biology exploration from molecules to the biosphere. The website uses the original 2026–27 ontology without changing its 234 nodes, 496 learning relationships, 827 alignments, or 38 containment links.
+A full-screen 3D viewer for AP Biology, from molecules to the biosphere. The website uses the original 2026–27 ontology without changing its 234 nodes, 496 learning relationships, 827 alignments, or 38 containment links.
 
 ## Run locally
 
 ```sh
 npm ci
-npm run dev
+npm run dev -- --port 5173 --strictPort
 ```
 
-Open the Local URL printed by Vite. Production output is generated with `npm run build`; `npm run preview` serves it locally. The deployed Site is private by default.
+Open **http://127.0.0.1:5173/**. This project is local-only. Keep the development server running while using the preview. `npm run build` creates a local build in `dist/`; `npm run preview` serves that build locally. Do not use the Sites skill or publish this project.
 
 ## Explore
 
-- Drag a 3D model to rotate it. Scroll over the scene, use its side arrows, choose a scale on the rail, or use the scale slider to move through ten biological scales.
-- Use the molecule families and selector to explore 29 published structures, including all 20 standard amino acids. Switch between ball-and-stick and space-filling representations.
-- Choose alternate macromolecule, organelle, and cell models. Pause motion, hide labels, change inspection distance, or reset the view.
-- Click a model label or learning card to open the original node. Follow typed relationships, read assessment criteria, and open the exact College Board source mapping.
-- Search the complete ontology or filter by any AP unit, science practice, or foundational capability. Reviewed markers stay in browser local storage; they do not claim mastery.
-- Share a URL with its scale, model/molecule, and node fragment to reproduce that view.
+- Open **Paths** in the header (the current path name on desktop). Seventeen routes follow biological components, compartments, and ecological membership. DNA follows chromatin → chromosome → nucleus; membrane lipids follow phospholipid → bilayer → cell; chlorophyll follows photosystem → thylakoid → chloroplast. The chooser previews the complete route before returning to the scene. Additional routes cover starch, RNA, free and ER-bound ribosomes, organellar DNA, ATP synthases, cell water, enzymes, seed protein, and woodland trees.
+- Drag to rotate. Scroll or pinch to zoom continuously along the selected route. The rail, slider, plus/minus buttons, and arrow keys follow that same route. Home/End use the route's actual endpoints.
+- Select **Plant** or **Animal** where both apply. Leaf cells lead to leaves, flowering plants, and plant populations. Animal cells lead to epithelial tissue, a rabbit, and a rabbit population. Shared structures retain their position when changing paths; incompatible choices return to the new path's beginning.
+- The upper-left molecular selector includes 29 published molecular structures and all 20 standard amino acids. Selecting a molecule chooses a compatible path, retaining the current context where applicable (for example, adenine in mitochondrial DNA).
+- Click an organelle, or use **Inspect structure…**, to open its rotatable cutaway and update the zoom route. Scrolling out follows its biological parents. The back button returns to the prior inspected view; Escape first dismisses an open note, then returns. Animal and plant cells expose 13 and 14 choices. Nuclear, mitochondrial, and chloroplast DNA have distinct parents, as do mitochondrial/chloroplast ATP synthases, free/bound ribosomes, and the plasma membrane/tonoplast.
+- **Field notes** opens one compact explanation with Notice, Function, and Context choices. Click a surface detail or use its selector to read about membrane carbohydrates, cortical fibers, wall channels, leaf veins, stomata, decomposers, litter, roots, and stream margins. Notes link to biological references and related original AP nodes. Organelles open with a short explanation; changing scale closes it. Expanded process explanations and the Index close notes to keep the scene clear.
+- Relevant process animations appear and play automatically when entering a structure. The compact strip provides pause, scrubbing, and one synchronized explanation; reaction chapters pause at meaningful events. Its chevron opens the explanation, replay, speed, and selection-pressure controls. **View structure** hides the process; **Show process** restores it. Animations cover hydrolysis, DNA replication, facilitated diffusion, oxidative phosphorylation, light reactions, secretion, translation, natural selection, predator–prey dynamics, and secondary succession. A process stops when its sequence ends. Manual pause carries across views, and scrubbing pauses playback. Reduced-motion users see the process immediately with playback paused.
+- Open the information button for rotation, labels, reset, representation, autoplay preference, composition, sources, and scientific qualifications. The autoplay preference stays in local storage. Dialogs suspend process playback while open. Space pauses the current process, or rotation when no process is active.
+- Open **Index** (or press `/`) for the closable node tray. The scene resizes above it. Search the complete ontology or filter by unit, science practice, or foundational capability.
+- Open a node to inspect its original evidence task, success criterion, prerequisites, other typed relationships, and College Board mappings. Reviewed markers stay in browser local storage; they do not claim mastery.
+- Share a URL with its path, organism, current structure, molecule, fractional zoom, and node fragment to reproduce that view. Earlier scale/model URLs remain supported.
 
 ## Source structure
 
 `public/data/ontology.json` is a byte-for-byte copy of `/Users/sanahrajesh/AP-Biology-Ontology-2026-27/ap-biology-ontology.json` as provided for this task. Preserve IDs and relationship semantics when revising it.
 
-`src/content.js` contains the authored physical-scale navigation and model descriptions. Physical scale is not a compulsory teaching sequence. Every node has a home view; selected nodes also appear in other relevant contexts.
+`src/pathways.js` defines the navigation graph, named routes, and model metadata. Every adjacent step requires an explicit relationship, explanation, and biological reference; unknown transitions throw instead of silently joining unrelated models. Assembly, packaging, containment, catalytic binding, and ecological membership are separate relationship types. `src/content.js` retains curriculum groupings, descriptions, and legacy URL mappings; those groupings are not a zoom sequence. Every original node remains accessible.
 
-`src/scene.js` builds the Three.js models, rendering controls, process cues, and model hotspots. `src/main.js` renders cards, preserves source crosswalks, and handles navigation and local review state. `src/styles.css` provides responsive layouts. Google Fonts is used for typography, with local font fallbacks.
+`src/model-builders.js` retains molecular coordinate and bond rendering. `src/detailed-models.js` builds cell and organelle cutaways and animation geometry; `src/landscapes.js` builds plant and ecological models. `src/pathway-models.js` adds the intermediate structures, epithelial tissue, and animal context needed by the routes. `src/surfaces.js` supplies procedural color/bump textures, irregular geometry, and physically lit materials. `src/natural-materials.js` adds photographic bark and ground maps plus thin-leaf backlighting; `src/habitat-terrain.js` builds uneven ground and exposed soil. Larger scenes use an outdoor HDR environment with softer directional shadows. Cell and molecular views retain their scientific lighting.
+
+`src/cell-detail.js` adds membrane edges, carbohydrate branches, peripheral fibers, cytoplasmic particles, nuclear pore complexes, and plant wall channels. Repeated small structures use instanced geometry. `src/world-detail.js` adds individual canopy leaves, ferns, fallen wood with growth rings, fungal fruiting bodies, soil roots, leaf epidermis/veins/stomata, and epithelial support fibers. Community and ecosystem views share a woodland and stream setting. `src/field-notes.js` holds feature explanations and source links separately from the curriculum ontology.
+
+`src/organisms.js` and `src/organism-geometry.js` build the larger organisms. Trees and understory shrubs have tapering branch networks and instanced leaves; flowering plants have leaves arranged around branching stems, curved petals, buds, and roots exposed against a soil cutaway. Rabbit bodies, forelegs, and paws form a connected implicit surface. Close views add directional fur ribbons, eyelids, and whiskers; population views reuse lighter geometry. Fox bodies use implicit surfaces with separate limbs and tails. The woodland foreground remains open enough to see consumers beneath the canopy. Small breathing, ear, blinking, plant-sway, and stream motions follow the process timeline where applicable, so scrubbing and pause remain deterministic. Reduced motion holds these poses still. Clicking an already-open organism opens its field note.
+
+`src/scene.js` normalizes and caches models, blends adjacent scenes during continuous zoom, and handles rotation, picking, pinch gestures, inspection, and playback. `src/structures.js` defines inspection links separately from curriculum relationships. `src/processes.js` holds reversible process states, model assumptions, and biological references. These transitions illustrate changes of biological organization; they do not claim that every scene is physically nested in one specimen.
+
+`src/main.js` handles scale navigation, automatic process selection, model selection, the node tray, and local review state. `src/node-detail.js` renders the original node records and crosswalks. `src/styles.css` uses system fonts and a full-window layout. The visual identity uses warm paper, forest-green type, a vermilion progress accent, a serif wordmark, and an original expanding-ring symbol repeated in the favicon. Secondary controls live in the path and settings dialogs; process explanations expand on demand. There is no permanent sidebar, page introduction, tagline, or footer.
 
 ## Scientific provenance
 
 - Small molecules: PubChem PUG REST published 3D conformers, with individual record URLs, formulas, coordinates, bond orders, and coordinate qualifications in `public/data/molecules.json`.
-- Protein: RCSB PDB 1CRN, chain A; 46 alpha-carbon positions from 327 deposited heavy atoms. The rendered trace is a smooth connection between measured positions, not an atomic surface.
-- DNA, amylose, membranes, cells, organisms, communities, ecosystems, and Earth are explicitly labeled schematics. Atom groups, relative dimensions, land cover, abundance, and process motion are illustrative. No quantitative biological simulation or universal ATP yield/energy-transfer efficiency is implied.
+- Protein: RCSB PDB 1CRN, chain A; 327 deposited heavy atoms rendered with approximate van der Waals radii. Hydrogens are omitted; this is not a calculated solvent-accessible surface. Crambin follows a seed-protein route based on its isolation from Crambe seeds, with no asserted subcellular location. The nascent polypeptide in translation routes is a separate schematic model.
+- DNA packaging uses an interphase chromosome territory, not a mitotic X inside an intact nucleus. Organelle DNA is represented by a circular diagram; actual topology and organization vary. The chlorophyll/PSII models are conceptual diagrams, not published atomic conformers. All these qualifications and the individual transition references are in Model information.
+- Cells and organelles are procedural scientific cutaways, not scans or microscopy. Texture, colors, proportions, abundance, and biochemical playback times are illustrative. Biochemical particle counts do not imply fixed ATP yield or measured kinetics. The enzyme animation uses a balanced generic hydrolysis scheme, with lobes representing molecular groups.
+- Fine fibers, pores, wall channels, leaf veins, and surface carbohydrates are enlarged for visibility. Cytoplasmic particles suggest crowding without measured concentrations. The woodland is an illustrative environment, not a reconstruction of a surveyed site. Field notes link these features to OpenStax Biology 2e and related AP nodes; this does not add new required College Board content to the ontology.
+- Whole plants, rabbits, and fox-shaped predators are procedural illustrations, not scanned specimens or species-specific anatomical reconstructions. Fur/leaf textures and small pose changes are visual cues. Predator counts follow the existing population model; animal poses do not simulate individual hunting. Population flower and coat colors retain their original genotype meanings.
+- Habitat surface maps and lighting: Poly Haven [Bark Brown 02](https://polyhaven.com/a/bark_brown_02) and [Forest Ground 01](https://polyhaven.com/a/forrest_ground_01), by Rob Tuytel; [Forest Ground 04](https://polyhaven.com/a/forest_ground_04), by Rob Tuytel and Rico Cilliers; and [Forest Slope](https://polyhaven.com/a/forest_slope), by Andreas Mischok. These photographic diffuse/normal/roughness maps and HDR lighting are unmodified 1K downloads under [CC0](https://polyhaven.com/license), stored locally in `public/textures/natural/`. `sources.json` records exact download URLs, file sizes, and SHA-256 checksums. Their use does not make the organism geometry a scanned specimen. Runtime recoloring, UV repetition, and lighting adapt the maps to the illustrative scenes.
+- Natural selection uses deterministic diploid viability selection with random mating and no mutation, migration, or drift. The three fitness scenarios are assumptions, not measured effects of flower or fur color. Twenty-four plants or rabbits are a rounded visual sample; the displayed allele frequencies use the underlying model.
+- Predator–prey dynamics use the Lotka–Volterra equations integrated with RK4, in arbitrary time units. Secondary succession is an authored 80-year example, not a prediction. Each animation's equations or assumptions and OpenStax reference are available in Model information.
+- Earth uses the satellite-derived `earth_atmos_2048.jpg` distributed with the [Three.js examples](https://github.com/mrdoob/three.js/blob/dev/examples/textures/planets/earth_atmos_2048.jpg), stored locally as `public/textures/earth-blue-marble.jpg`. The Three.js MIT license is included beside it. Cloud cover is baked into the image, not live weather.
 - The bilayer depicts amphipathic lipids schematically. Glycerophosphocholine in the small-molecule selector is identified as a headgroup-region molecule without fatty-acid tails; a DPPC conformer was omitted because the 3D record was unavailable.
 - Prerequisites and other pedagogical links retain the ontology's authored-inference classification. Coverage is not College Board endorsement, demonstrated student mastery, or completion of the six outstanding classroom/resource conditions.
 
@@ -43,8 +63,16 @@ Re-fetch molecular assets with `node scripts/fetch-molecules.mjs`. The script ca
 ```sh
 npm test
 node tests/browser.mjs
+node tests/interactive-models.mjs
+node tests/autoplay-browser.mjs
+node tests/world-details.mjs
+node tests/organisms-browser.mjs
 ```
 
-The browser regression defaults to local Google Chrome on macOS. Set `CHROME_PATH` to another installed Chromium browser and `TEST_BASE_URL` to a running preview URL when needed. Tests cover node/relationship reachability, scientific data integrity, all scales and alternate models, search, prerequisite navigation, deep links, local persistence, responsive layout, reduced motion, and WebGL fallback. Screenshots and reports are written to ignored `test-results/`.
+The browser regressions default to local Google Chrome on macOS. Set `CHROME_PATH` to another installed Chromium browser and `TEST_BASE_URL` to a running preview URL when needed. Use a production preview while editing to avoid Vite reloads interrupting a test. Tests cover every named route, plant/animal context, path switching, original nodes, every cell structure choice, mesh picking, nested inspection, all ten animations, scrubbing, playback, selection scenarios, phone layout, reduced motion, and WebGL fallback. The autoplay suite additionally verifies automatic entry, process replacement during forward/reverse zoom, manual pause across views, saved preferences, dialog suspension, and structure-only mode. Pure-model tests verify graph validity, compatible molecular routes, organelle parents, ontology integrity, frequency conservation, diffusion paths and particle counts, integration convergence, and deterministic scrubbing. Screenshots and reports are written to ignored `test-results/pathways/`, `test-results/interactive/`, and `test-results/atlas/`.
 
-The Site manifest is `.openai/hosting.json`. Static deployment output is `dist/`. Keep credentials out of project files.
+The previous hosting manifest has been removed. Local build output is `dist/`. Removing local deployment files does not delete an already hosted copy; remote deletion requires a confirmed deletion action through an available management interface.
+
+The world-details regression checks feature picking, contextual notes, reference and node links, valid inspection routes, explanation dismissal, all new scene details, and phone layouts. It writes screenshots and a report to `test-results/world/`.
+
+The organism tests check finite body geometry, connected rabbit paws, fur bounds, closed leaf tips, outward-facing branches, all eight larger-scale views, inspection returns, lighting restoration, reversible ecological playback, reduced motion, automatic playback, and phone layouts. Their screenshots and report are in `test-results/organisms/`.

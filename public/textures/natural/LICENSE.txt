@@ -1,0 +1,9 @@
+These assets are distributed by Poly Haven under CC0 1.0.
+https://polyhaven.com/license
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Bark Brown 02 and Forest Ground 01: Rob Tuytel
+Forest Slope: Andreas Mischok
+Source and download URLs, checksums, and channel names are in sources.json.
+Files are unmodified 1K downloads.
+Forest Ground 04: Rob Tuytel and Rico Cilliers

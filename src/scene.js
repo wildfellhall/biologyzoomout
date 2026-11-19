@@ -1,84 +1,359 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { ModelBuilders, disposeModel } from './model-builders.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { detailedBuilders } from './detailed-models.js';
+import { landscapeBuilders } from './landscapes.js';
+import { structureInfo } from './structures.js';
+import {featureNotes,hoverExplanation} from './field-notes.js';
+import {cloneForView} from './surfaces.js';
+import { processes, sampleProcess } from './processes.js';
+import { pathwayBuilders, makeThylakoid, makeCircularDNA } from './pathway-models.js';
+export { elements } from './model-builders.js';
+Object.assign(ModelBuilders.prototype,detailedBuilders,landscapeBuilders);
+ModelBuilders.prototype.makeCircularDNA=makeCircularDNA;
 
-export const elements={H:{name:'Hydrogen',color:'#e7e7da',radius:.24},C:{name:'Carbon',color:'#515e55',radius:.4},N:{name:'Nitrogen',color:'#879fc3',radius:.37},O:{name:'Oxygen',color:'#dc8f7d',radius:.36},P:{name:'Phosphorus',color:'#d6b474',radius:.48},S:{name:'Sulfur',color:'#d8cf7d',radius:.46}};
-const sphere=new THREE.SphereGeometry(1,24,18), cylinder=new THREE.CylinderGeometry(1,1,1,12), cone=new THREE.ConeGeometry(1,1,12), box=new THREE.BoxGeometry(1,1,1);
-const shared=new Set([sphere,cylinder,cone,box]);
-const mats=new Map();
-function material(color,opacity=1,metalness=.02) {
- const key=`${color}:${opacity}:${metalness}`;
- if(!mats.has(key)) mats.set(key,new THREE.MeshStandardMaterial({color,roughness:.48,metalness,transparent:opacity<1,opacity,depthWrite:opacity>=1,side:THREE.DoubleSide}));
- return mats.get(key);
-}
-function ellipsoid(g,p,s,c,opacity=1){const m=new THREE.Mesh(sphere,material(c,opacity));m.position.set(...p);m.scale.set(...(Array.isArray(s)?s:[s,s,s]));m.castShadow=opacity>=1;m.receiveShadow=true;g.add(m);return m;}
-function link(g,a,b,r,c){const va=new THREE.Vector3(...a),vb=new THREE.Vector3(...b),delta=vb.clone().sub(va);const m=new THREE.Mesh(cylinder,material(c));m.position.copy(va).add(vb).multiplyScalar(.5);m.scale.set(r,delta.length(),r);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());m.castShadow=true;g.add(m);return m;}
-function tube(g,points,r,c){const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));const m=new THREE.Mesh(new THREE.TubeGeometry(curve,Math.max(24,points.length*6),r,8,false),material(c));m.castShadow=true;g.add(m);return m;}
-function disc(g,p,r,h,c){const m=new THREE.Mesh(cylinder,material(c));m.position.set(...p);m.scale.set(r,h,r);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;}
-function arrow(g,a,b,c){const start=new THREE.Vector3(...a),delta=new THREE.Vector3(...b).sub(start);const ar=new THREE.ArrowHelper(delta.clone().normalize(),start,delta.length(),c,.28,.16);g.add(ar);return ar;}
+const clamp = (value,max) => Math.max(0, Math.min(max, value));
+const smooth = (a, b, value) => THREE.MathUtils.smoothstep(value, a, b);
 
-export class BiologyScene {
- constructor(container,{onSelect,onReady,onError}) {
-  this.container=container;this.onSelect=onSelect;this.paused=matchMedia('(prefers-reduced-motion: reduce)').matches;this.labelsVisible=true;this.flowVisible=true;this.molecularStyle='ball';this.root=new THREE.Group();this.annotations=[];this.elapsed=0;this.selectedModel='';this.modelData=null;this.protein=null;this.scene=new THREE.Scene();this.scene.background=new THREE.Color('#f0f1e8');
-  this.camera=new THREE.PerspectiveCamera(38,1,.05,300);this.camera.position.set(7,4,10);
-  try {this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});} catch(error){onError(error);return;}
-  this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.toneMapping=THREE.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.05;this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFShadowMap;
-  this.renderer.domElement.setAttribute('aria-label','Interactive 3D biology model. Drag to rotate. Use the labeled controls to change scale and model.');this.renderer.domElement.setAttribute('role','img');container.prepend(this.renderer.domElement);
-  this.labelLayer=document.createElement('div');this.labelLayer.className='model-labels';container.append(this.labelLayer);
-  this.scene.add(new THREE.HemisphereLight('#ffffff','#a5b19c',2.4));
-  const sun=new THREE.DirectionalLight('#fff1d9',3.6);sun.position.set(6,10,8);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-10;sun.shadow.camera.right=10;sun.shadow.camera.top=10;sun.shadow.camera.bottom=-10;sun.shadow.bias=-.001;this.scene.add(sun);
-  const fill=new THREE.DirectionalLight('#d7e8e2',1.6);fill.position.set(-7,4,-5);this.scene.add(fill);
-  this.scene.add(this.root);this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=true;this.controls.dampingFactor=.06;this.controls.enablePan=false;this.controls.enableZoom=false;this.controls.autoRotate=!this.paused;this.controls.autoRotateSpeed=.45;
-  this.raycaster=new THREE.Raycaster();let pointerStart=null;
-  this.renderer.domElement.addEventListener('pointerdown',e=>{pointerStart=[e.clientX,e.clientY]});
-  this.renderer.domElement.addEventListener('pointerup',e=>{if(!pointerStart||Math.hypot(e.clientX-pointerStart[0],e.clientY-pointerStart[1])>6)return;const rect=this.renderer.domElement.getBoundingClientRect();this.raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),this.camera);const hit=this.raycaster.intersectObjects(this.root.children,true).find(h=>h.object.userData.node||h.object.userData.atom);if(hit)onSelect(hit.object.userData);});
-  this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(container);this.resize();this.previous=performance.now();this.frame();onReady?.();
- }
- resize(){if(!this.renderer)return;const {width,height}=this.container.getBoundingClientRect();if(width<1||height<1)return;this.renderer.setSize(width,height);this.camera.aspect=width/height;this.camera.updateProjectionMatrix();if(this.baseDistance)this.resetView();}
- annotation(text,position,node){const el=document.createElement('button');el.className='hotspot';el.type='button';el.textContent=text;el.setAttribute('aria-label',`${text}: open related learning node`);el.onclick=()=>this.onSelect({node});this.labelLayer.append(el);this.annotations.push({el,position:new THREE.Vector3(...position)});}
- setModel(id,data,protein){if(!this.renderer)return;this.selectedModel=id;this.modelData=data;this.protein=protein;this.root.traverse(o=>{if(o.geometry&&!shared.has(o.geometry))o.geometry.dispose()});this.root.clear();this.labelLayer.replaceChildren();this.annotations=[];this.movers=[];this.flows=[];this.root.scale.setScalar(1);this.root.rotation.set(0,0,0);
-  if(id==='molecules')this.makeMolecule(data);else if(id==='dna')this.makeDNA();else if(id==='protein')this.makeProtein(protein);else if(id==='amylose')this.makeAmylose();else if(id==='membrane')this.makeMembrane();else if(id==='mitochondrion'||id==='chloroplast')this.makeOrganelle(id);else if(id.includes('cell'))this.makeCell(id);else if(id==='plant')this.makePlantScene();else if(id==='population')this.makeLandscape('population');else if(id==='community'||id==='ecosystem')this.makeLandscape(id);else this.makeEarth();
-  const bounds=new THREE.Box3().setFromObject(this.root);const center=bounds.getCenter(new THREE.Vector3());this.modelCenter=center;this.controls.target.copy(center);const size=bounds.getSize(new THREE.Vector3());this.radius=Math.max(size.x,size.y,size.z)/2;this.baseDistance=Math.max(7,this.radius/Math.sin(THREE.MathUtils.degToRad(19))*1.12);this.resetView();this.transition=performance.now();this.root.scale.setScalar(.72);this.setFlow(this.flowVisible);this.render();
- }
- resetView(){if(!this.renderer||!this.modelCenter)return;const portrait=Math.max(1,1/this.camera.aspect)*1.06;const direction=['plant','population','community','ecosystem'].includes(this.selectedModel)?new THREE.Vector3(1,.7,1.35):new THREE.Vector3(.3,.2,1);this.camera.position.copy(this.modelCenter).add(direction.normalize().multiplyScalar(this.baseDistance*portrait));this.controls.target.copy(this.modelCenter);this.controls.update();}
- zoomView(factor){const delta=this.camera.position.clone().sub(this.controls.target);const d=THREE.MathUtils.clamp(delta.length()*factor,this.baseDistance*.55,this.baseDistance*1.8);this.camera.position.copy(this.controls.target).add(delta.setLength(d));}
- setPaused(value){this.paused=value;if(this.controls)this.controls.autoRotate=!value;}
- setLabels(value){this.labelsVisible=value;if(this.labelLayer)this.labelLayer.hidden=!value;}
- setFlow(value){this.flowVisible=value;for(const item of this.flows||[])item.visible=value;}
- setStyle(value){this.molecularStyle=value;if(this.selectedModel==='molecules')this.setModel('molecules',this.modelData,this.protein);}
- makeMolecule(data){if(!data)return;const byId=new Map(data.atoms.map(a=>[a.id,a]));const useSpace=this.molecularStyle==='space';for(const a of data.atoms){const e=elements[a.element]||elements.C;const atom=ellipsoid(this.root,[a.x,a.y,a.z],e.radius*(useSpace?2.15:1),e.color);atom.userData={atom:a,element:e.name};}
-  if(!useSpace)for(const b of data.bonds){const a=byId.get(b.a),c=byId.get(b.b);if(!a||!c)continue;const va=new THREE.Vector3(a.x,a.y,a.z),vc=new THREE.Vector3(c.x,c.y,c.z),dir=vc.clone().sub(va).normalize();let off=new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0));if(off.length()<.1)off.crossVectors(dir,new THREE.Vector3(1,0,0));off.normalize().multiplyScalar(.11);for(let i=0;i<Math.min(b.order,3);i++){const shift=off.clone().multiplyScalar(i-(b.order-1)/2);const start=va.clone().add(shift),end=vc.clone().add(shift),middle=start.clone().add(end).multiplyScalar(.5);link(this.root,start.toArray(),middle.toArray(),.085,elements[a.element]?.color||'#728474');link(this.root,middle.toArray(),end.toArray(),.085,elements[c.element]?.color||'#728474');}}
-  const oxygen=data.atoms.find(a=>a.element==='O'),carbon=data.atoms.find(a=>a.element==='C'),nitrogen=data.atoms.find(a=>a.element==='N');if(carbon)this.annotation('Carbon framework',[carbon.x,carbon.y,carbon.z],'APBIO-1.2-01');if(nitrogen)this.annotation('Nitrogen',[nitrogen.x,nitrogen.y,nitrogen.z],data.family==='amino-acids'?'APBIO-1.7-01':'APBIO-1.6-01');else if(oxygen)this.annotation('Oxygen',[oxygen.x,oxygen.y,oxygen.z],'APBIO-F-01');
- }
- makeDNA(){const strands=[[],[]];for(let i=0;i<28;i++){const a=i*.6,y=(i-13.5)*.27;for(let s=0;s<2;s++){const p=[Math.cos(a+s*Math.PI)*1.3,y,Math.sin(a+s*Math.PI)*1.3];strands[s].push(p);const bead=ellipsoid(this.root,p,.14,'#cba87c');bead.userData.node='APBIO-1.6-01';}const p=strands[0][i],q=strands[1][i],mid=p.map((x,k)=>(x+q[k])/2);link(this.root,p,mid,.09,i%3?'#669b85':'#ad8bb6');link(this.root,mid,q,.09,i%3?'#a4b9a5':'#d4b7d7');}strands.forEach(p=>tube(this.root,p,.08,'#bc986d'));this.annotation('Complementary bases',[0,1.5,1.2],'APBIO-1.6-02');this.annotation('Sugar–phosphate backbone',[1.3,-1.5,0],'APBIO-1.6-01');this.annotation('5′ / 3′ strand direction',strands[0][27],'APBIO-1.6-02');}
- makeProtein(protein){if(!protein?.backbone?.length)return;const points=protein.backbone.map(p=>[p.x,p.y,p.z]);const center=new THREE.Box3().setFromPoints(points.map(p=>new THREE.Vector3(...p))).getCenter(new THREE.Vector3());const transformed=points.map(p=>p.map((v,i)=>(v-center.getComponent(i))*.18));for(let i=0;i<transformed.length-1;i++){const col=new THREE.Color('#87ad99').lerp(new THREE.Color('#e0bc80'),i/transformed.length);const m=tube(this.root,transformed.slice(Math.max(0,i-1),Math.min(transformed.length,i+3)),.1,col);m.userData.node='APBIO-1.7-02';}for(let i=0;i<transformed.length;i++)ellipsoid(this.root,transformed[i],.13,new THREE.Color('#87ad99').lerp(new THREE.Color('#e0bc80'),i/transformed.length));this.annotation('Folded backbone',transformed[20],'APBIO-1.7-05');this.annotation('N terminus',transformed[0],'APBIO-1.7-01');this.annotation('C terminus',transformed.at(-1),'APBIO-1.7-01');}
- makeAmylose(){for(let ring=0;ring<6;ring++){const center=[(ring-2.5)*1.3,Math.sin(ring*.7)*.45,Math.cos(ring*.7)*.4];const pts=[];for(let j=0;j<6;j++){const angle=j*Math.PI/3;const p=[center[0]+Math.cos(angle)*.65,center[1]+Math.sin(angle)*.55,center[2]+(j%2)*.17];pts.push(p);ellipsoid(this.root,p,.16,j===5?'#dd8e78':'#9bb18c');}for(let j=0;j<6;j++)link(this.root,pts[j],pts[(j+1)%6],.08,'#b7c5a5');if(ring<5){const p=[center[0]+.8,center[1],center[2]];ellipsoid(this.root,p,.16,'#dd8e78');link(this.root,[center[0]+.5,center[1],center[2]],[center[0]+1.1,center[1],center[2]],.08,'#dd8e78');}}this.annotation('Glucose residue',[-2,0,1],'APBIO-1.4-01');this.annotation('α(1→4) linkage',[1,1,0],'APBIO-1.3-01');}
- makeMembrane(){for(let x=-4;x<=4;x++)for(let z=-3;z<=3;z++){if(x*x+z*z<3)continue;for(const side of [-1,1]){const xx=x*.6,zz=z*.6;const head=ellipsoid(this.root,[xx,side*.95,zz],.24,'#a2c4b2');head.userData.node='APBIO-1.5-03';for(const offset of [-.1,.1])tube(this.root,[[xx+offset,side*.75,zz],[xx+offset,side*.4,zz+.08],[xx+offset+.07,side*.1,zz]],.055,'#d7bd87');}}
-  for(let i=0;i<7;i++){const a=i/7*Math.PI*2;const p=[Math.cos(a)*.68,0,Math.sin(a)*.68];const m=ellipsoid(this.root,p,[.24,1.35,.24],'#baa7d2');m.userData.node='APBIO-2.6-01';}
-  for(let i=0;i<9;i++){const m=ellipsoid(this.root,[0,0,0],.08,'#79aeb7');this.movers.push({mesh:m,kind:'channel',phase:i/9});this.flows.push(m);}
-  this.annotation('Hydrophilic heads',[-1.8,1,1.6],'APBIO-1.5-03');this.annotation('Hydrophobic interior',[2,0,1.5],'APBIO-2.4-01');this.annotation('Channel protein',[.6,1.25,0],'APBIO-2.6-01');}
- makeOrganelle(kind){const chl=kind==='chloroplast';ellipsoid(this.root,[0,0,0],[3.4,1.25,1.65],chl?'#b6cc90':'#cba382',.19);ellipsoid(this.root,[0,-.1,0],[3.15,1,1.5],chl?'#dee3bd':'#dfc49f',.18);
-  if(chl){for(let x=-2;x<=2;x+=1.1)for(let i=0;i<6;i++){const d=disc(this.root,[x,-.55+i*.19,0],.7,.12,'#83a56c');d.userData.node='APBIO-3.4-02';}tube(this.root,[[-2.5,-.3,0],[0,-.3,.4],[2.5,-.3,0]],.07,'#9bba81');this.annotation('Grana: thylakoid stacks',[-1.4,.6,.7],'APBIO-2.1-09');this.annotation('Stroma',[2.7,.4,.4],'APBIO-3.4-05');}
-  else{for(let x=-2.4;x<=2.4;x+=.65){const points=[];for(let i=0;i<=20;i++){const a=i/20*Math.PI*2;points.push([x+.13*Math.sin(a*2),Math.cos(a)*.75,Math.sin(a)*1.05]);}const fold=tube(this.root,points,.11,'#b78b65');fold.userData.node='APBIO-2.1-10';}this.annotation('Cristae: inner membrane',[0,1,.9],'APBIO-2.1-10');this.annotation('Matrix',[-2.7,0,.5],'APBIO-3.5-02');}
-  for(let i=0;i<18;i++){const m=ellipsoid(this.root,[0,0,0],.075,chl?'#e8ce85':'#d9efbb');this.movers.push({mesh:m,kind:'orbit',phase:i/18});this.flows.push(m);}
- }
- makeCell(kind){const plant=kind==='plant-cell';if(plant){const wall=new THREE.Mesh(box,material('#8eac77',.17));wall.scale.set(6,4.3,4.3);wall.userData.node='APBIO-2.4-02';this.root.add(wall);ellipsoid(this.root,[.6,0,0],[1.9,1.5,1.55],'#abcad0',.4);}else ellipsoid(this.root,[0,0,0],[3.2,2.35,2.6],'#a4c6b2',.16);
-  const nucleus=ellipsoid(this.root,[-1,.3,.3],[.93,.9,.9],'#b8a3cb',.8);nucleus.userData.node='APBIO-6.1-01';ellipsoid(this.root,[-1,.4,.7],.32,'#8e7aa5');
-  for(let i=0;i<5;i++){const pts=[];for(let j=0;j<14;j++){const a=j/14*Math.PI*1.3;pts.push([-1+Math.cos(a)*(1.12+i*.12),Math.sin(a)*.7-.2,Math.sin(i)*.4-i*.17]);}tube(this.root,pts,.07,'#9db6a6');}
-  for(let i=0;i<5;i++){const a=i*1.4;const p=[Math.cos(a)*2.1,Math.sin(a)*1.2,Math.cos(a*2)*1.4];const m=ellipsoid(this.root,p,plant?[.7,.22,.32]:[.5,.24,.25],plant?'#8da65e':'#d6aa79');m.rotation.z=a;m.userData.node=plant?'APBIO-2.1-09':'APBIO-2.1-10';}
-  for(let i=0;i<16;i++){const a=i*2.4;ellipsoid(this.root,[Math.cos(a)*1.7,Math.sin(a*2)*1.5,Math.sin(a)*1.6],.055,'#7c9386');}
-  this.annotation('Nucleus',[-1,1.2,.6],'APBIO-6.1-01');this.annotation(plant?'Central vacuole':'Endomembrane system',plant?[1.2,.6,1]:[-.5,-1,1],plant?'APBIO-2.1-08':'APBIO-2.1-01');this.annotation(plant?'Cell wall':'Cell membrane',[2.5,1,1],plant?'APBIO-2.4-02':'APBIO-2.3-01');}
- plant(g,x,z,scale=1,color='#dcb6b8',withRoots=false){const stem=new THREE.Group();stem.position.set(x,0,z);stem.scale.setScalar(scale);g.add(stem);tube(stem,[[0,0,0],[.1,.8,0],[-.08,1.7,0],[0,2.7,0]],.06,'#809a6d');for(let i=0;i<6;i++){const side=i%2?1:-1;const y=.45+i*.29;const leaf=ellipsoid(stem,[side*.35,y,0],[.5,.09,.2],i%2?'#a8bf7f':'#8da573');leaf.rotation.z=side*.5;leaf.userData.node='APBIO-6.5-03';link(stem,[0,y-.15,0],[side*.4,y,0],.025,'#839c6c');}for(let i=0;i<6;i++){const a=i/6*Math.PI*2;const petal=ellipsoid(stem,[Math.cos(a)*.24,2.7+Math.sin(a)*.24,0],[.22,.22,.085],color);petal.userData.node='APBIO-5.5-01';}ellipsoid(stem,[0,2.7,.08],.14,'#d8bd79');if(withRoots)for(let i=0;i<7;i++){const a=i/7*Math.PI*2;tube(stem,[[0,0,0],[Math.cos(a)*.25,-.5,Math.sin(a)*.25],[Math.cos(a)*.65,-1,Math.sin(a)*.65]],.035,'#b49878');}return stem;}
- makePlantScene(){this.plant(this.root,0,0,1.7,'#dcb6b8',true);const soil=disc(this.root,[0,-.08,0],2,.15,'#d9ccb3');soil.receiveShadow=true;this.annotation('Leaves: exchange and energy',[-.8,2.6,.2],'APBIO-8.2-01');this.annotation('Flower: a phenotype',[.4,4.6,0],'APBIO-5.5-01');this.annotation('Roots: water and minerals',[.7,-1,0],'APBIO-2.7-02');}
- tree(g,x,z,s=1){const t=new THREE.Group();t.position.set(x,0,z);t.scale.setScalar(s);g.add(t);link(t,[0,0,0],[0,1.8,0],.13,'#9b8669');for(let i=0;i<3;i++){const m=new THREE.Mesh(cone,material(['#789b83','#89aa8e','#a5bb97'][i]));m.position.y=1.3+i*.55;m.scale.set(1.05-i*.2,1.55-i*.15,1.05-i*.2);m.castShadow=true;m.userData.node='APBIO-8.2-02';t.add(m);}return t;}
- makeLandscape(kind){const ecosystem=kind==='ecosystem',pop=kind==='population';disc(this.root,[0,-.23,0],5.2,.45,'#d7c8ab');disc(this.root,[0,.005,0],5.15,.05,'#b6c6a2');
-  if(pop){for(let i=0;i<24;i++){const a=i*2.4,r=.8+Math.sqrt(i/24)*3.5;this.plant(this.root,Math.cos(a)*r,Math.sin(a)*r,.35+(i%4)*.06,['#c8abca','#e4c68d','#e6c8b8'][i%3]);}this.annotation('Variation within a population',[-2,1.7,1],'APBIO-7.1-01');this.annotation('Count individuals and traits',[2,1.3,1],'APBIO-7.4-01');}
-  else{for(let i=0;i<17;i++){const a=i*2.4,r=1.7+Math.sqrt(i/17)*2.6;const x=Math.cos(a)*r,z=Math.sin(a)*r;if(ecosystem&&Math.abs(x)<1)continue;this.tree(this.root,x,z,.48+(i%4)*.1);}if(ecosystem){const pts=[];for(let i=0;i<=40;i++){const z=-4.8+i*.24;pts.push([Math.sin(z*.9)*.7,.05,z]);}tube(this.root,pts,.45,'#88b4bd');ellipsoid(this.root,[0,.09,3.6],[1.6,.12,1.3],'#88b4bd');ellipsoid(this.root,[-3.4,5,-1],.7,'#ebd292');for(let i=0;i<5;i++){const a=arrow(this.root,[-3.2+i*.2,4.4,-1],[-2+i*.5,1.9,-1],'#d3b873');this.flows.push(a);}}
-   else{for(let i=0;i<3;i++){const x=.3+i*.5,z=1.4-i*.6;const body=ellipsoid(this.root,[x,.4,z],[.4,.25,.22],'#c9ad88');body.userData.node='APBIO-8.5-02';ellipsoid(this.root,[x+.3,.58,z],.17,'#c9ad88');for(const side of [-1,1])ellipsoid(this.root,[x+.33,.82,z+side*.06],[.055,.18,.055],'#c9ad88');}for(let i=0;i<5;i++){const x=-1.5+i*.27,z=-.8+Math.sin(i)*.4;link(this.root,[x,0,z],[x,.32,z],.04,'#e0d7be');ellipsoid(this.root,[x,.32,z],[.19,.1,.19],'#d3a48d');}this.flows.push(arrow(this.root,[-2,1.3,1],[.4,.65,1.3],'#c7a96a'));this.flows.push(arrow(this.root,[.4,.5,1],[-1.4,.4,-.7],'#b9977b'));}
-   this.annotation('Producers',[-2.4,2.2,-1],'APBIO-8.2-02');this.annotation(ecosystem?'Water connects habitats':'Consumers',ecosystem?[1,.5,3]:[1,.8,1.3],ecosystem?'APBIO-8.2-04':'APBIO-8.5-03');this.annotation(ecosystem?'Energy enters the system':'Decomposers',ecosystem?[-3.4,5,-1]:[-1.4,.6,-.7],ecosystem?'APBIO-8.2-03':'APBIO-8.5-02');}
- }
- makeEarth(){const earth=ellipsoid(this.root,[0,0,0],2.7,'#86afb9');earth.userData.node='APBIO-8.2-04';const patches=[[-.6,.6],[.15,.9],[.65,.2],[1.2,-.4],[2.4,.7],[-2.1,-.5],[-1.7,.1]];for(let i=0;i<patches.length;i++){const [lon,lat]=patches[i];for(let j=0;j<13;j++){const l=lon+Math.sin(j*1.7)*.2,la=lat+Math.cos(j*2.3)*.22;const p=[Math.cos(la)*Math.sin(l)*2.68,Math.sin(la)*2.68,Math.cos(la)*Math.cos(l)*2.68];const m=ellipsoid(this.root,p,[.35,.22,.1],i%2?'#94b3a2':'#b3c19a');m.lookAt(new THREE.Vector3(...p).multiplyScalar(2));m.userData.node='APBIO-8.2-05';}}ellipsoid(this.root,[0,0,0],2.82,'#d8e5e0',.12);for(let i=0;i<4;i++){const points=[];for(let j=0;j<60;j++){const a=j/59*Math.PI*1.4;points.push([Math.cos(a)*3.2,Math.sin(a)*3.2*Math.cos(i*.8),Math.sin(a)*3.2*Math.sin(i*.8)]);}const path=tube(this.root,points,.012,'#ded3ae');this.flows.push(path);}this.annotation('Atmosphere and global reservoirs',[1.8,2,1.2],'APBIO-8.2-08');this.annotation('Carbon across systems',[-1.8,-.7,2],'APBIO-8.2-05');}
- render(){if(this.renderer)this.renderer.render(this.scene,this.camera);}
- frame(){this.raf=requestAnimationFrame(()=>this.frame());const now=performance.now(),dt=Math.min(.05,(now-this.previous)/1000);this.previous=now;if(document.hidden)return;if(!this.paused)this.elapsed+=dt;if(this.transition){const t=Math.min(1,(now-this.transition)/650);this.root.scale.setScalar(.72+.28*(1-Math.pow(1-t,3)));if(t===1)this.transition=null;}for(const mover of this.movers||[]){const t=(this.elapsed*.11+mover.phase)%1;if(mover.kind==='channel')mover.mesh.position.set(Math.sin(mover.phase*9)*.2,(t-.5)*4,Math.cos(mover.phase*7)*.2);else mover.mesh.position.set(Math.cos(t*Math.PI*2)*2.8,Math.sin(t*Math.PI*2)*.85,Math.cos(t*Math.PI*4)*.9);}
-  this.controls.update(dt);for(const a of this.annotations){const p=a.position.clone().multiplyScalar(this.root.scale.x).project(this.camera);a.el.style.left=`${(p.x*.5+.5)*100}%`;a.el.style.top=`${(-p.y*.5+.5)*100}%`;a.el.style.visibility=p.z>1||Math.abs(p.x)>.88||Math.abs(p.y)>.85?'hidden':'visible';}this.render();}
- destroy(){cancelAnimationFrame(this.raf);this.observer?.disconnect();this.controls?.dispose();this.renderer?.dispose();}
+export class BiologyScene extends ModelBuilders {
+  constructor(container, { onSelect, onPosition, onZoom, onError, onProcess }) {
+    super();
+    Object.assign(this, { container, onSelect, onPosition, views: new Map(), definitions: [], position: 0, targetPosition: 0, elapsed: 0, labelsVisible: false, flowVisible: false, molecularStyle: 'ball' });
+    this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.paused = this.reducedMotion;
+    this.onProcess=onProcess;this.process=null;this.processProgress=0;this.processPlaying=false;this.environment='favor-a';this.processRate=1;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(38, 1, .08, 180);
+    this.camera.position.set(3, 2, 12);
+    try {
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    } catch (error) { onError(error); return; }
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure=1.05;
+    this.renderer.shadowMap.enabled=true;
+    this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    const environment=new RoomEnvironment();
+    const generator=new THREE.PMREMGenerator(this.renderer);
+    this.environmentMap=generator.fromScene(environment,.04);
+    this.scene.environment=this.environmentMap.texture;this.scene.environmentIntensity=.32;
+    environment.dispose();generator.dispose();
+    const canvas = this.renderer.domElement;
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', '3D biology model. Drag to rotate; scroll or pinch to change scale.');
+    container.prepend(canvas);
+    this.labelLayer = document.createElement('div');
+    this.labelLayer.className = 'model-labels';
+    this.labelLayer.hidden = true;
+    container.append(this.labelLayer);
+    this.hoverLabel=document.createElement('div');this.hoverLabel.className='hover-label';this.hoverLabel.hidden=true;container.append(this.hoverLabel);
+    this.skyLight=new THREE.HemisphereLight('#c8dcf2', '#1e242a', .68);this.scene.add(this.skyLight);this.directionalLights=[];
+    for (const [color, intensity, position] of [['#ffe9d2', 3.5, [-4,7,7]], ['#86bdd7',2.4,[5,2,-5]], ['#b1cbd7',.55,[4,-2,5]]]) {
+      const light = new THREE.DirectionalLight(color, intensity);
+      light.position.set(...position);
+      if(intensity===3.5){light.castShadow=true;light.shadow.mapSize.set(2048,2048);Object.assign(light.shadow.camera,{left:-6,right:6,top:6,bottom:-6,near:.1,far:30});light.shadow.bias=-.00025;light.shadow.normalBias=.018;light.shadow.radius=2;}
+      this.scene.add(light);
+      this.directionalLights.push(light);
+    }
+    this.controls = new OrbitControls(this.camera, canvas);
+    Object.assign(this.controls, { enableDamping: true, dampingFactor: .07, enablePan: false, enableZoom: false, autoRotate: !this.paused, autoRotateSpeed: .3 });
+    this.controls.touches.TWO = THREE.TOUCH.PAN;
+    this.raycaster = new THREE.Raycaster();
+    let pointerStart, pinchDistance = null, wasPinch = false;
+    canvas.addEventListener('pointerdown', event => { pointerStart = [event.clientX, event.clientY]; if (event.pointerType !== 'touch') wasPinch = false; });
+    canvas.addEventListener('pointerup', event => {
+      if (wasPinch || !pointerStart || Math.hypot(event.clientX-pointerStart[0],event.clientY-pointerStart[1]) > 5 || !this.activeView) return;
+      const hit=this.pick(event);
+      if (hit) onSelect(hit.object.userData);
+    });
+    canvas.addEventListener('pointermove',event=>{
+      if(event.buttons||event.pointerType==='touch') {this.clearHover();return;}
+      const hit=this.pick(event);this.clearHover();
+      if(!hit)return;
+      const data=hit.object.userData;
+      if(data.inspect||data.feature){
+        this.hovered=hit.object;const material=hit.object.material;
+        if(material.emissive){this.hoverEmissive=material.emissive.clone();material.emissive.set('#61784c');material.emissiveIntensity=.2;}
+        this.hoverLabel.replaceChildren();const name=document.createElement('strong'),explanation=document.createElement('span');
+        name.textContent=`${featureNotes[data.feature]?.name||data.label||data.inspect} ↗`;explanation.textContent=hoverExplanation(data);
+        this.hoverLabel.append(name);if(explanation.textContent)this.hoverLabel.append(explanation);
+        this.hoverLabel.style.left=`${Math.max(10,Math.min(event.clientX+16,innerWidth-275))}px`;
+        this.hoverLabel.style.top=`${Math.max(5,Math.min(event.clientY-container.getBoundingClientRect().top+16,container.clientHeight-100))}px`;
+        this.hoverLabel.hidden=false;canvas.style.cursor='pointer';
+      }
+    });
+    canvas.addEventListener('pointerleave',()=>this.clearHover());
+    canvas.addEventListener('touchstart', event => {
+      if (event.touches.length === 1) wasPinch = false;
+      if (event.touches.length === 2) { wasPinch = true; pinchDistance = this.touchDistance(event); }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', event => {
+      if (event.touches.length !== 2 || pinchDistance === null) return;
+      event.preventDefault();
+      const next = this.touchDistance(event);
+      onZoom(Math.log(pinchDistance/next)*1.8);
+      pinchDistance = next;
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { pinchDistance = null; });
+    this.observer = new ResizeObserver(() => this.resize());
+    this.observer.observe(container);
+    this.resize();
+    this.previous = performance.now();
+    this.frame();
+  }
+
+  pick(event) {
+    if(!this.activeView)return null;
+    const rect=this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),this.camera);
+    return this.raycaster.intersectObjects(this.activeView.root.children,true).find(item=>{
+      let o=item.object;while(o){if(!o.visible)return false;o=o.parent;}
+      return item.object.userData.feature||item.object.userData.inspect||item.object.userData.node||item.object.userData.atom;
+    });
+  }
+  clearHover(){if(this.hovered?.material.emissive&&this.hoverEmissive)this.hovered.material.emissive.copy(this.hoverEmissive);this.hovered=null;if(this.hoverLabel)this.hoverLabel.hidden=true;if(this.renderer)this.renderer.domElement.style.cursor='grab';}
+  focus(definition){this.clearHover();this.focusDefinition=definition;this.setProcess(null);if(this.renderer){this.renderJourney();this.resetView();}}
+  setProcess(id){this.process=id;this.processProgress=0;this.processPlaying=false;this.applyProcess();}
+  seekProcess(t){this.processProgress=Math.max(0,Math.min(1,t));this.applyProcess();}
+  playProcess(value){if(value&&this.processProgress>=1)this.processProgress=0;this.processPlaying=value;this.applyProcess();}
+  setEnvironment(value){this.environment=value;this.processProgress=0;this.applyProcess();}
+  applyProcess(){
+    const snapshot=this.process?sampleProcess(this.process,this.processProgress,this.environment):null;
+    this.activeView?.processRig?.update(snapshot);
+    const view=this.activeView;
+    if(view){const bounds=snapshot?view.processBounds:view.baseBounds;view.content.position.copy(bounds.center).negate();view.normalized.scale.setScalar(3.1/bounds.radius);}
+    if(this.controls)this.controls.autoRotate=!this.paused&&!this.process&&!this.labelsVisible;
+    this.onProcess?.(snapshot,this.processPlaying);
+    if(this.labelLayer)this.labelLayer.hidden=!(this.labelsVisible||snapshot);
+  }
+
+  touchDistance(event) {
+    return Math.hypot(event.touches[0].clientX-event.touches[1].clientX,event.touches[0].clientY-event.touches[1].clientY);
+  }
+
+  updateLighting(){
+    const habitat=['plant','rabbit','tree','population','rabbit-population','tree-population','community','ecosystem'].includes(this.activeView?.id);
+    this.container.dataset.lighting=habitat?'habitat':'scientific';
+    this.scene.environment=habitat&&this.outdoorEnvironment?this.outdoorEnvironment.texture:this.environmentMap.texture;
+    this.scene.environmentIntensity=habitat?.55:.32;
+    this.skyLight.color.set(habitat?'#e7eadf':'#c8dcf2');this.skyLight.groundColor.set(habitat?'#74644c':'#1e242a');this.skyLight.intensity=habitat?.8:.68;
+    this.directionalLights.forEach((light,i)=>light.intensity=(habitat?[2.3,.65,.4]:[3.5,2.4,.55])[i]);
+    const shadow=this.directionalLights[0].shadow;shadow.normalBias=habitat?.01:.018;shadow.bias=habitat?-.0001:-.00025;
+    if(habitat&&!this.outdoorLoading){
+      this.outdoorLoading=true;
+      new HDRLoader().load('/textures/natural/forest_slope_hdri.hdr',texture=>{
+        if(this.disposed){texture.dispose();return;}
+        const generator=new THREE.PMREMGenerator(this.renderer);this.outdoorEnvironment=generator.fromEquirectangular(texture);generator.dispose();texture.dispose();this.updateLighting();
+      });
+    }
+  }
+
+  resize() {
+    if (!this.renderer) return;
+    const {width,height} = this.container.getBoundingClientRect();
+    if (!width || !height) return;
+    this.renderer.setSize(width,height);
+    this.camera.aspect = width/height;
+    this.camera.updateProjectionMatrix();
+    this.fitCamera();
+    this.controls?.update();
+  }
+
+  fitCamera() {
+    // A narrow, upright plant does not need the wide-scene clearance used by cells and terrain.
+    const lower=Math.floor(this.position),fraction=this.focusDefinition?0:this.position-lower;
+    const first=this.focusDefinition||this.definitions[lower],next=this.definitions[lower+1]||first;
+    const width=id=>id==='plant'?.7:1;
+    const widthFraction=THREE.MathUtils.lerp(width(first?.id),width(next?.id),smooth(0,1,fraction));
+    this.camera.position.normalize().multiplyScalar(11.5*Math.max(1,widthFraction/this.camera.aspect));
+  }
+
+  setDefinitions(definitions) {
+    this.definitions=definitions;this.focusDefinition=null;
+    this.position=clamp(this.position,definitions.length-1);this.targetPosition=clamp(this.targetPosition,definitions.length-1);
+    if(this.renderer)this.renderJourney();
+  }
+
+  seek(position, immediate = false) {
+    this.targetPosition = clamp(position,this.definitions.length-1);
+    if (immediate || this.reducedMotion || !this.renderer) {
+      this.position = this.targetPosition;
+      if (this.renderer) this.renderJourney();
+      this.onPosition(this.position);
+    }
+  }
+
+  resetView() {
+    if (!this.renderer) return;
+    this.camera.position.set(3,2,12);
+    this.controls.target.set(0,0,0);
+    this.resize();
+  }
+  setPaused(value) { this.paused=value; if (this.controls) this.controls.autoRotate=!value&&!this.process&&!this.labelsVisible; }
+  setLabels(value) {
+    this.labelsVisible=value;if(this.labelLayer)this.labelLayer.hidden=!(value||this.process);
+    if(this.controls){this.controls.autoRotate=!this.paused&&!this.process&&!value;if(value){this.controls.enableDamping=false;this.controls.update();this.controls.enableDamping=true;}}
+  }
+  setFlow(value) { this.flowVisible=value; for (const view of this.views.values()) for (const flow of view.flows) flow.visible=value; }
+  setStyle(value) { this.molecularStyle=value; if (this.renderer) this.renderJourney(); }
+
+  annotation(text,position,node) {
+    const selection=typeof node==='object'?node:{node};
+    const element=document.createElement(selection.processOnly?'span':'button');
+    element.className='hotspot'; element.type='button'; element.textContent=text;
+    if(selection.processOnly)element.classList.add('process-label');
+    if(!selection.processOnly)element.setAttribute('aria-label',`${text}: ${selection.inspect?'inspect in 3D':'open learning node'}`);
+    element.onclick=()=>this.onSelect(selection);
+    this.buildLabelLayer.append(element);
+    this.annotations.push({element,position:new THREE.Vector3(...position),processOnly:selection.processOnly,after:selection.after||0});
+  }
+
+  getView({id,data,protein}) {
+    const key=`${id}:${data?.id||''}:${id==='molecules'?this.molecularStyle:''}`;
+    if (this.views.has(key)) return this.views.get(key);
+    this.root=new THREE.Group(); this.annotations=[]; this.movers=[]; this.flows=[];this.processRig=null;
+    this.buildLabelLayer=document.createElement('div');
+    this.buildLabelLayer.className='view-labels';
+    this.labelLayer.append(this.buildLabelLayer);
+    if (pathwayBuilders[id]) pathwayBuilders[id].call(this);
+    else if (id==='thylakoid') makeThylakoid.call(this);
+    else if (id==='molecules') this.makeMolecule(data);
+    else if (id==='dna') this.makeDNA();
+    else if (id==='protein') this.makeProtein(protein);
+    else if (id==='amylose') this.makeAmylose();
+    else if (id==='membrane') this.makeMembrane();
+    else if (['mitochondrion','chloroplast'].includes(id)) this.makeOrganelle(id);
+    else if (id==='animal-cell'||id==='plant-cell') this.makeCell(id);
+    else if (structureInfo[id]) this.makeStructure(id);
+    else if (id==='plant') this.makePlantScene();
+    else if (['population','community','ecosystem'].includes(id)) this.makeLandscape(id);
+    else if(id==='biosphere') this.makeEarth();
+    else throw new Error(`No 3D builder for ${id}`);
+
+    this.processRig?.update(null);
+    const content=this.root;
+    content.updateMatrixWorld(true);
+    const baseBounds=new THREE.Box3();
+    content.traverse(object=>{
+      if(!object.isMesh)return;
+      let parent=object;while(parent){if(!parent.visible)return;parent=parent.parent;}
+      if(object.isInstancedMesh){object.computeBoundingBox();baseBounds.union(object.boundingBox.clone().applyMatrix4(object.matrixWorld));}
+      else{object.geometry.computeBoundingBox();baseBounds.union(object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld));}
+    });
+    const bounds=new THREE.Box3().setFromObject(content);
+    const center=bounds.getCenter(new THREE.Vector3());
+    const size=bounds.getSize(new THREE.Vector3());
+    const radius=Math.max(size.x,size.y,size.z)/2||1;
+    content.position.copy(center).negate();
+    const normalized=new THREE.Group();
+    normalized.scale.setScalar(3.1/radius);
+    normalized.add(content);
+    const root=new THREE.Group(); root.add(normalized);
+    if (['population','rabbit-population','tree-population','community','ecosystem','epithelium'].includes(id)) root.rotation.set(.35,-.32,0);
+    const materialCopies=new Map(),features=new Set(),ambient=[];
+    content.traverse(object=>{
+      if(object.userData.animate)ambient.push(object.userData.animate);
+      if(object.userData.feature)features.add(object.userData.feature);
+      if (!object.material) return;
+      const copy=original=>{
+        if (!materialCopies.has(original)) {
+          const clone=cloneForView(original);
+          materialCopies.set(original,clone);
+        }
+        return materialCopies.get(original);
+      };
+      object.material=Array.isArray(object.material)?object.material.map(copy):copy(object.material);
+    });
+    const baseSize=baseBounds.getSize(new THREE.Vector3());
+    const view={id,key,root,content,normalized,ambient,features:[...features],baseBounds:{center:baseBounds.getCenter(new THREE.Vector3()),radius:Math.max(baseSize.x,baseSize.y,baseSize.z)/2||1},processBounds:{center,radius},labels:this.buildLabelLayer,annotations:this.annotations,movers:this.movers,flows:this.flows,processRig:this.processRig,materials:[...materialCopies.values()],opacity:1};
+    this.scene.add(root);this.views.set(key,view);
+    for (const flow of view.flows) flow.visible=this.flowVisible;
+    return view;
+  }
+
+  setViewAppearance(view,scale,opacity) {
+    view.root.visible=opacity>.005; view.root.scale.setScalar(scale); view.opacity=opacity;
+    for (const material of view.materials) {
+      const translucent=opacity<.995;
+      const transparent=translucent||material.userData.originalTransparent;
+      if (material.transparent!==transparent) {material.transparent=transparent;material.needsUpdate=true;}
+      material.opacity=material.userData.originalOpacity*opacity;
+      material.depthWrite=!translucent&&material.userData.originalDepthWrite;
+    }
+  }
+
+  renderJourney() {
+    if (!this.definitions.length) return;
+    const lower=Math.floor(this.position),fraction=this.focusDefinition?0:this.position-lower;
+    for (const view of this.views.values()) {view.root.visible=false;view.labels.hidden=true;}
+    const first=this.getView(this.focusDefinition||this.definitions[lower]);
+    const second=fraction>.001&&lower<this.definitions.length-1?this.getView(this.definitions[lower+1]):null;
+    this.setViewAppearance(first,Math.pow(.16,fraction),1-smooth(.1,.85,fraction));
+    if (second) this.setViewAppearance(second,Math.pow(2.8,1-fraction),smooth(.2,.95,fraction));
+    const previous=this.activeView;
+    this.activeView=fraction<.5||!second?first:second;
+    if(previous!==this.activeView)this.updateLighting();
+    // A process belongs to its structure. Clear it before applying a new model's rig.
+    if(previous!==this.activeView){this.process=null;this.processProgress=0;this.processPlaying=false;}
+    first.labels.hidden=first!==this.activeView;
+    if (second) second.labels.hidden=second!==this.activeView;
+    this.activeView.labels.hidden=false;
+    this.container.dataset.model=this.activeView.id;
+    this.applyProcess();
+    this.fitCamera();
+    for (const [key,view] of this.views) {
+      if (this.views.size<=12) break;
+      if (view===first||view===second) continue;
+      this.scene.remove(view.root);view.labels.remove();disposeModel(view.root);this.views.delete(key);
+    }
+  }
+
+  frame() {
+    this.raf=requestAnimationFrame(()=>this.frame());
+    const now=performance.now(),dt=Math.min(.05,(now-this.previous)/1000);this.previous=now;
+    if (document.hidden) return;
+    if (!this.paused) this.elapsed+=dt;
+    if(this.process&&this.processPlaying&&!document.querySelector('dialog[open]')){
+      this.processProgress=Math.min(1,this.processProgress+dt*this.processRate/processes[this.process].seconds);
+      if(this.processProgress===1)this.processPlaying=false;
+      this.applyProcess();
+    }
+    const difference=this.targetPosition-this.position;
+    if (Math.abs(difference)>.0001) {
+      this.position+=difference*(1-Math.exp(-dt*11));
+      if (Math.abs(this.targetPosition-this.position)<.0008) this.position=this.targetPosition;
+      this.renderJourney();this.onPosition(this.position);
+    }
+    for (const view of this.views.values()) {
+      if (!view.root.visible) continue;
+      const ambientTime=this.process&&view===this.activeView?this.processProgress*processes[this.process].seconds:this.elapsed;
+      for(const animate of view.ambient)animate(ambientTime);
+      for (const mover of view.movers) {
+        const t=(this.elapsed*.11+mover.phase)%1;
+        if (mover.kind==='channel') mover.mesh.position.set(Math.sin(mover.phase*9)*.2,(t-.5)*4,Math.cos(mover.phase*7)*.2);
+        else mover.mesh.position.set(Math.cos(t*Math.PI*2)*2.8,Math.sin(t*Math.PI*2)*.85,Math.cos(t*Math.PI*4)*.9);
+      }
+    }
+    this.controls.update(dt);this.scene.updateMatrixWorld();
+    if ((this.labelsVisible||this.process)&&this.activeView) for (const annotation of this.activeView.annotations) {
+      annotation.element.hidden=!(annotation.processOnly?this.process&&this.processProgress>=annotation.after:this.labelsVisible);
+      const p=annotation.position.clone().applyMatrix4(this.activeView.content.matrixWorld).project(this.camera);
+      annotation.element.style.left=`${(p.x*.5+.5)*100}%`;
+      annotation.element.style.top=`${(.5-p.y*.5)*100}%`;
+      annotation.element.style.visibility=p.z>1||Math.abs(p.x)>.9||Math.abs(p.y)>.9?'hidden':'visible';
+    }
+    this.renderer.render(this.scene,this.camera);
+  }
+
+  destroy() {
+    this.disposed=true;
+    cancelAnimationFrame(this.raf);this.observer?.disconnect();this.controls?.dispose();
+    for (const view of this.views.values()) disposeModel(view.root);
+    this.renderer?.dispose();
+    this.environmentMap?.dispose();
+    this.outdoorEnvironment?.dispose();
+  }
 }

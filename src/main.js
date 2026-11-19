@@ -1,74 +1,476 @@
 import './styles.css';
 import { BiologyScene, elements } from './scene.js';
-import { stages, modelInfo, homeStage, nodesAtStage, relationsFor, relationNames, formulaHTML } from './content.js';
+import { stages, modelInfo, homeStage, nodesAtStage, formulaHTML } from './content.js';
+import { esc, nodeDetail } from './node-detail.js';
+import { structureInfo, childrenOf } from './structures.js';
+import { processes, processesFor, phaseStarts } from './processes.js';
+import {fieldNotes,featureNotes} from './field-notes.js';
+import { pathways, pathwayInfo, buildPath, routeForModel, pathForMolecule, supportsMolecule, pathStep } from './pathways.js';
 
-const $=s=>document.querySelector(s);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icon=(name)=>({arrow:'↗',left:'←',right:'→',close:'×',search:'⌕',play:'▷',pause:'Ⅱ',reset:'⟲',plus:'＋',minus:'−'}[name]||name);
-const fetchJSON=async path=>{const response=await fetch(path);if(!response.ok)throw new Error(`Could not load ${path}`);return response.json()};
-const state={stage:0,model:'molecules',molecule:'glucose',family:'carbohydrates',scope:'stage',search:'',unit:'all',paused:matchMedia('(prefers-reduced-motion: reduce)').matches,labels:true,flows:true,style:'ball',selectedNode:null,history:[],reviewed:new Set(),lastWheel:0};
-try{state.reviewed=new Set(JSON.parse(localStorage.getItem('biology-zoomout-reviewed')||'[]'));}catch{}
+const $ = selector => document.querySelector(selector);
+const icons = {
+  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
+  close:'<path d="m6 6 12 12M6 18 18 6"/>',
+  pause:'<path d="M9 5v14M15 5v14"/>',
+  play:'<path d="m8 5 11 7-11 7Z"/>',
+  reset:'<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/>',
+  labels:'<path d="m4 19 6-14 6 14M6 14h8M17 10h5m-2.5 0v9"/>',
+  plus:'<path d="M5 12h14M12 5v14"/>',
+  minus:'<path d="M5 12h14"/>',
+  paths:'<path d="M5 19V5m0 8c8 0 4-8 14-8M5 13c8 0 4 6 14 6"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>',
+  expand:'<path d="m6 9 6 6 6-6"/>',
+};
+const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
+const fetchJSON = async url => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load ${url}`);
+  return response.json();
+};
+const families = [['carbohydrates','Carbohydrates'],['amino-acids','Amino acids'],['lipids','Lipids'],['nucleotides','Nucleotides'],['water','Water']];
+const state = {
+  position:0, target:0, stage:0, molecule:'glucose', pathId:'starch', organism:'plant',
+  drawer:false, scope:'stage', query:'', unit:'all', selectedNode:null, history:[],
+  paused:matchMedia('(prefers-reduced-motion: reduce)').matches, labels:false, style:'ball', reviewed:new Set(),
+  focusStack:[], process:null, autoplay:true, animationPaused:false, noteOpen:false, noteFeature:null, noteTab:'work',
+};
+try { state.autoplay=localStorage.getItem('biology-zoomout-autoplay')!=='false'; } catch {}
+try { state.reviewed = new Set(JSON.parse(localStorage.getItem('biology-zoomout-reviewed') || '[]')); } catch {}
 
 try {
- const [ontology,molecules,protein]=await Promise.all(['/data/ontology.json','/data/molecules.json','/data/protein.json'].map(fetchJSON));
- const nodeMap=new Map(ontology.nodes.map(n=>[n.id,n]));const moleculeMap=new Map(molecules.map(m=>[m.id,m]));
- $('#app').innerHTML=`
-  <a class="skip-link" href="#learning-panel">Skip to learning cards</a>
-  <header class="topbar"><a class="brand" href="#scale=molecules" aria-label="Biology Zoomout home"><span class="brand-orbit">◎</span><span>Biology <em>Zoomout</em><small>LIFE, AT EVERY SCALE</small></span></a><nav aria-label="Main navigation"><button class="nav-link active" id="explore-nav">Explore</button><button class="nav-link" id="library-nav">The ontology <span>234</span></button><button class="nav-link" id="sources-nav">About & sources</button></nav><span class="course-badge"><i></i> AP BIOLOGY <span>2026–27</span></span></header>
-  <main>
-   <div class="journey-heading"><div class="chapter"><span id="chapter-number">01</span> / 10 <span class="chapter-rule"></span><span id="eyebrow"></span></div><span class="journey-caption">From the chemistry of life to the living planet <span>↗</span></span></div>
-   <section class="workspace" aria-label="Biology scale explorer">
-    <div class="explorer">
-     <div class="stage-copy"><h1 id="stage-title"></h1><p id="stage-description"></p></div>
-     <div class="scene-wrap" id="scene-wrap"><div id="scene" class="scene"></div><div class="scene-top"><span class="live-tag"><i></i> EXPLORE IN 3D</span><span id="size-label" class="size-label"></span></div><div class="scene-hint" id="scene-hint">Drag to rotate <span>·</span> Scroll to zoom through life</div><div class="scene-tools" aria-label="3D view controls"><button id="pause-btn" title="Pause rotation and animation" aria-label="Pause rotation and animation">Ⅱ</button><button id="labels-btn" title="Show or hide model labels" aria-label="Show model labels" aria-pressed="true">Aa</button><button id="reset-btn" title="Reset camera" aria-label="Reset camera">⟲</button><span></span><button id="closer-btn" title="Inspect model closer" aria-label="Inspect model closer">＋</button><button id="farther-btn" title="View model farther away" aria-label="View model farther away">−</button></div><div class="picked-atom" id="picked-atom" hidden></div></div>
-     <div class="model-panel"><div id="model-tabs" class="model-tabs" aria-label="Model selection"></div><div class="model-heading"><div><span class="tiny-label" id="model-tag"></span><h2 id="model-name"></h2></div><div id="model-formula" class="model-formula"></div></div><p id="model-summary" class="model-summary"></p><div class="model-legend" id="model-legend"></div><div class="model-actions"><div id="molecule-picker"></div><div id="representation-controls"><button class="representation selected" data-style="ball" aria-pressed="true">Ball & stick</button><button class="representation" data-style="space" aria-pressed="false">Space filling</button></div><label class="flow-control" id="flow-control" hidden><input id="flow-toggle" type="checkbox" checked> Show process cues</label></div><details class="model-note"><summary>About this model <span>＋</span></summary><p id="model-note"></p><div id="model-source"></div></details></div>
-    </div>
-    <aside class="learning-panel" id="learning-panel" aria-label="Ontology learning cards"><div class="learning-header"><div class="tiny-label">THE CONNECTED CURRICULUM</div><div class="learning-title"><h2>Make the connections.</h2><span id="card-count"></span></div><p>Explore a skill. Follow what it builds on.</p><div class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="node-search" placeholder="Search concepts, skills, or node IDs…" aria-label="Search all ontology nodes"><kbd>/</kbd></div><div class="filter-row"><div class="scope-switch" aria-label="Card scope"><button id="stage-scope" class="selected" aria-pressed="true">At this scale</button><button id="all-scope" aria-pressed="false">All 234 nodes</button></div><select id="unit-filter" aria-label="Filter by AP Biology unit"><option value="all">All units</option>${Object.entries(ontology.unit_names).map(([n,name])=>`<option value="${n}">Unit ${n} · ${esc(name)}</option>`).join('')}<option value="practices">Science practices</option><option value="foundations">Foundations & labs</option></select></div></div><div class="context-question"><span>THINK AT THIS SCALE</span><p id="stage-question"></p></div><div id="cards" class="cards" aria-live="polite"></div><div class="learning-footer"><span id="review-count">0 reviewed</span><span>Connections retain the original ontology.</span></div></aside>
-   </section>
-   <section class="zoom-navigation" aria-label="Navigate biological scale"><div class="zoom-nav-top"><div><span class="tiny-label">YOUR PERSPECTIVE</span><span class="scale-caption">Zoom out to see what connects.</span></div><div class="zoom-step-buttons"><button id="zoom-in" aria-label="Zoom in to a smaller biological scale">← <span>Zoom in</span></button><button id="zoom-out" aria-label="Zoom out to a larger biological scale"><span>Zoom out</span> →</button></div></div><div class="scale-rail" id="scale-rail">${stages.map((s,i)=>`<button data-stage="${i}" aria-label="${s.name}, representative scale ${s.size}" style="--stage-color:${s.color}"><span class="scale-dot"></span><strong>${s.name}</strong><small>${s.size}</small></button>`).join('')}</div><label class="sr-only" for="scale-range">Biological scale</label><input id="scale-range" type="range" min="0" max="9" step="1" value="0" aria-valuetext="Molecules"><div class="scale-footnote"><span>Representative sizes · models are rescaled for exploration</span><span>234 nodes <b>·</b> 496 learning relationships <b>·</b> 8 AP units</span></div></section>
-  </main>
-  <footer class="site-footer"><span>Biology Zoomout <i>Observe the parts. Understand the whole.</i></span><button id="footer-sources">Framework & model sources ↗</button></footer>
-  <dialog id="node-dialog" class="node-dialog" aria-labelledby="node-title"><div class="dialog-toolbar"><button id="node-back" aria-label="Previous learning node">← Back</button><span>ONTOLOGY EXPLORER</span><button class="close-dialog" aria-label="Close learning node">×</button></div><div id="node-detail"></div></dialog>
-  <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title"><div class="dialog-toolbar"><span>THE STORY BEHIND THE MODELS</span><button class="close-dialog" aria-label="Close about and sources">×</button></div><div class="about-body"><span class="tiny-label">BIOLOGY ZOOMOUT</span><h2 id="about-title">One curriculum.<br>Many ways to see it.</h2><p>This experience uses the complete AP Biology ontology created for the 2026–27 course: 234 nodes, 496 learning relationships, and 38 capability-decomposition links. A journey through physical scale is an exploration route, not a prescribed teaching sequence.</p><h3>What the cards preserve</h3><p>Every original node retains its ID, observable outcome, evidence task, success criterion, official source mappings, and typed relationships. Prerequisites are authored instructional judgments, not a prerequisite map prescribed by College Board. “Reviewed” is a local reading marker, not a mastery score.</p><h3>What you are seeing in 3D</h3><p>Small molecules use published PubChem conformer coordinates. All 20 standard amino acids are available. Crambin uses experimental coordinates from RCSB PDB 1CRN. Larger models are explicitly labeled schematics; sizes, colors, abundance, and process motion are illustrative. The Earth view uses stylized land cover, not geographic data.</p><h3>Primary sources</h3><ul>${ontology.sources.map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)} ↗</a><small>${esc(s.edition)} · checked ${esc(s.checked_on)}</small></li>`).join('')}<li><a href="https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest" target="_blank" rel="noopener">PubChem molecular structures ↗</a><small>Individual records are linked below each molecular model.</small></li><li><a href="https://www.rcsb.org/structure/1CRN" target="_blank" rel="noopener">RCSB PDB · Crambin 1CRN ↗</a><small>46 residues; backbone trace derived from deposited alpha-carbon coordinates.</small></li></ul><h3>Scientific qualifications</h3>${ontology.source_issues.map(s=>`<p><b>${esc(s.requirement)}</b> ${esc(s.issue)} ${esc(s.resolution)}</p>`).join('')}<p>Six course implementation conditions, including laboratory time and available resources, require classroom evidence and remain unverified. Curriculum representation does not certify course implementation.</p><div class="about-download"><a href="/data/ontology.json" download="ap-biology-ontology.json">Download the original ontology ↓</a></div><p class="fine-print">Built with <a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a>. Reviewed-node markers stay in this browser. No account or student data is required.</p></div></dialog>`;
+  const [ontology,molecules,protein] = await Promise.all(['/data/ontology.json','/data/molecules.json','/data/protein.json'].map(fetchJSON));
+  const nodeMap = new Map(ontology.nodes.map(node=>[node.id,node]));
+  const moleculeMap = new Map(molecules.map(molecule=>[molecule.id,molecule]));
+  let route=buildPath(state.pathId,state.organism);
+  state.reviewed = new Set([...state.reviewed].filter(id=>nodeMap.has(id)));
 
- $('#scene-wrap').insertAdjacentHTML('beforeend','<div class="scene-scale-controls"><button id="scene-smaller" aria-label="Previous biological scale" title="Previous biological scale">←</button><button id="scene-larger" aria-label="Next biological scale" title="Next biological scale">→</button></div>');
- const scene=new BiologyScene($('#scene'),{onSelect:selection=>{if(selection.node)openNode(selection.node);else if(selection.atom){$('#picked-atom').hidden=false;$('#picked-atom').innerHTML=`<b>${esc(selection.element)}</b><span>${esc(selection.atom.element)} · Atom ${esc(selection.atom.id)}</span><button aria-label="Close atom information">×</button>`;$('#picked-atom button').onclick=()=>$('#picked-atom').hidden=true;}},onError:()=>{$('#scene').innerHTML='<div class="webgl-fallback"><span>◎</span><h3>3D rendering is unavailable</h3><p>This browser could not start WebGL. You can still explore every model description, learning card, and relationship. Try a browser with hardware acceleration for the interactive models.</p></div>';$('#scene-wrap').classList.add('no-webgl');}});
- const families=[['carbohydrates','Carbohydrates'],['amino-acids','Amino acids'],['lipids','Lipids'],['nucleotides','Nucleotides'],['water','Water']];
- function molecularNodes(m){if(m.family==='water')return ['APBIO-1.1-01','APBIO-1.1-02','APBIO-1.1-03'];if(m.family==='amino-acids')return ['APBIO-1.7-01','APBIO-1.7-05'];if(m.family==='lipids')return ['APBIO-1.5-01','APBIO-1.5-02','APBIO-1.5-03'];if(m.family==='nucleotides')return ['APBIO-1.6-01','APBIO-3.3-02'];return ['APBIO-1.4-01','APBIO-1.3-01','APBIO-1.2-01'];}
- function renderModel(){
-  $('#scene-smaller').disabled=state.stage===0;$('#scene-larger').disabled=state.stage===9;
-  const isMol=state.model==='molecules';const mol=moleculeMap.get(state.molecule);const info=isMol?{name:mol.name,tag:families.find(f=>f[0]===mol.family)?.[1],formula:mol.formula,summary:mol.description,note:mol.coordinateNote,source:mol.source}:modelInfo[state.model];
-  $('#model-tabs').innerHTML=isMol?families.map(([id,label])=>`<button data-family="${id}" class="${state.family===id?'selected':''}" aria-pressed="${state.family===id}">${label}</button>`).join(''):stages[state.stage].models.map(id=>`<button data-model="${id}" class="${state.model===id?'selected':''}" aria-pressed="${state.model===id}">${modelInfo[id].name}</button>`).join('');
-  $('#model-tag').textContent=info.tag;$('#model-name').textContent=info.name;$('#model-formula').innerHTML=isMol?formulaHTML(esc(info.formula)):esc(info.formula);$('#model-summary').textContent=info.summary;$('#model-note').textContent=info.note;
-  $('#model-source').innerHTML=info.source?`<a target="_blank" rel="noopener" href="${esc(info.source.url)}">${esc(info.source.label)} ↗</a>`:state.model==='protein'?'<a target="_blank" rel="noopener" href="https://www.rcsb.org/structure/1CRN">Experimental structure · RCSB PDB 1CRN ↗</a>':'<span>Authored teaching model · see the linked ontology cards for source alignment.</span>';
-  let legend=info.legend;
-  if(isMol){const counts={};for(const atom of mol.atoms)counts[atom.element]=(counts[atom.element]||0)+1;legend=Object.entries(counts).sort((a,b)=>['C','H','O','N','P','S'].indexOf(a[0])-['C','H','O','N','P','S'].indexOf(b[0])).map(([el,count])=>[elements[el]?.color||'#777',`${el} · ${count} ${elements[el]?.name.toLowerCase()||el}${count===1?' atom':' atoms'}`]);}
-  $('#model-legend').innerHTML=legend.map(([c,label])=>`<span><i style="background:${c}"></i>${esc(label)}</span>`).join('');
-  $('#molecule-picker').hidden=!isMol;$('#representation-controls').hidden=!isMol;$('#flow-control').hidden=!['membrane','mitochondrion','chloroplast','community','ecosystem','biosphere'].includes(state.model);
-  $('#molecule-picker').innerHTML=isMol?`<label for="compound-select">Explore a molecule</label><select id="compound-select">${molecules.filter(m=>m.family===state.family).map(m=>`<option value="${m.id}" ${m.id===state.molecule?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`:'';
-  $('#picked-atom').hidden=true;scene.setModel(state.model,isMol?mol:null,protein);renderCards();
- }
- function setStage(index,{hash=true,resetScope=false}={}){state.stage=Math.max(0,Math.min(9,index));const stage=stages[state.stage];state.model=stage.models[0];if(resetScope){state.scope='stage';state.search='';state.unit='all';$('#node-search').value='';$('#unit-filter').value='all';}$('#chapter-number').textContent=String(state.stage+1).padStart(2,'0');$('#eyebrow').textContent=stage.eyebrow;$('#stage-title').textContent=stage.title;$('#stage-description').textContent=stage.subtitle;$('#stage-question').textContent=stage.question;$('#size-label').innerHTML=`<span>${esc(stage.name)}</span> ${esc(stage.size)}`;$('#scale-range').value=state.stage;$('#scale-range').setAttribute('aria-valuetext',`${stage.name}, representative size ${stage.size}`);$('#zoom-in').disabled=state.stage===0;$('#zoom-out').disabled=state.stage===9;document.querySelectorAll('[data-stage]').forEach(b=>{const active=+b.dataset.stage===state.stage;b.classList.toggle('active',active);b.classList.toggle('visited',+b.dataset.stage<state.stage);b.setAttribute('aria-current',active?'step':'false');});$('#scale-rail').style.setProperty('--progress',`${state.stage/9*100}%`);if(hash)updateHash();renderModel();}
- function updateHash(){const params=new URLSearchParams({scale:stages[state.stage].id});if(state.model==='molecules')params.set('molecule',state.molecule);else params.set('model',state.model);if(state.selectedNode)params.set('node',state.selectedNode);history.replaceState(null,'',`#${params}`);}
- function applyHash(){const p=new URLSearchParams(location.hash.slice(1));const index=stages.findIndex(s=>s.id===p.get('scale'));if(moleculeMap.has(p.get('molecule'))){state.molecule=p.get('molecule');state.family=moleculeMap.get(state.molecule).family;}setStage(index>=0?index:0,{hash:false});if(stages[state.stage].models.includes(p.get('model'))){state.model=p.get('model');renderModel();}if(nodeMap.has(p.get('node')))openNode(p.get('node'));}
- function renderCards(){let nodes=state.scope==='all'||state.search||state.unit!=='all'?ontology.nodes:nodesAtStage(ontology,state.stage);const query=state.search.toLowerCase().trim();if(query)nodes=nodes.filter(n=>`${n.id} ${n.label} ${n.outcome} ${n.official_codes.join(' ')}`.toLowerCase().includes(query));if(state.unit!=='all')nodes=nodes.filter(n=>state.unit==='practices'?n.id.startsWith('APBIO-P'):state.unit==='foundations'?/^APBIO-[FL]-/.test(n.id):n.id.startsWith(`APBIO-${state.unit}.`));const relevant=new Set(state.model==='molecules'?molecularNodes(moleculeMap.get(state.molecule)):modelInfo[state.model].nodes);nodes=[...nodes].sort((a,b)=>(+relevant.has(b.id)-+relevant.has(a.id))||a.id.localeCompare(b.id,undefined,{numeric:true}));$('#card-count').textContent=nodes.length;$('#cards').innerHTML=nodes.length?nodes.map(n=>`<button class="node-card ${relevant.has(n.id)?'model-related':''}" data-node="${n.id}"><div class="card-meta"><span>${esc(n.id)}</span><span class="node-kind">${n.kind==='skill'?'SKILL':n.status==='foundation'?'FOUNDATION':'CONCEPT'}</span></div><h3>${esc(n.label)}<span>↗</span></h3><p>${esc(n.outcome)}</p><div class="card-footer"><span>${relevant.has(n.id)?'<i class="model-dot"></i> In this model':n.topic_ids.length?`Topic ${esc(n.topic_ids.join(' · '))}`:'Across the curriculum'}</span><span>${state.reviewed.has(n.id)?'✓ Reviewed':n.prerequisite_ids.length?`${n.prerequisite_ids.length} prerequisite${n.prerequisite_ids.length===1?'':'s'}`:'Explore node'}</span></div></button>`).join(''):'<div class="empty-state"><span>⌕</span><h3>No matching nodes</h3><p>Try a broader term, a node ID, or another unit.</p><button id="clear-filters">Clear filters</button></div>';const all=state.scope==='all'||!!state.search||state.unit!=='all';$('#stage-scope').classList.toggle('selected',!all);$('#stage-scope').setAttribute('aria-pressed',String(!all));$('#all-scope').classList.toggle('selected',all);$('#all-scope').setAttribute('aria-pressed',String(all));$('#review-count').textContent=`${state.reviewed.size} of 234 reviewed`;}
- function openNode(id,{addHistory=true}={}){const n=nodeMap.get(id);if(!n)return;if(addHistory&&state.selectedNode&&state.selectedNode!==id)state.history.push(state.selectedNode);state.selectedNode=id;const relations=relationsFor(ontology,id);const relatedButton=(other,description)=>`<button class="related-node" data-open-node="${other}"><span>${esc(nodeMap.get(other)?.label||other)} <b>↗</b><small>${esc(other)}</small></span>${description?`<p>${esc(description)}</p>`:''}</button>`;const groups=[['prerequisite',true,'Builds on'],['prerequisite',false,'Makes possible'],['recommended',null,'Helpful preparation'],['transfer',null,'Transfer to another context'],['corequisite',null,'Develop together'],['related',null,'Related capabilities']];
- const standards=ontology.alignments.filter(a=>a.node_id===id).map(a=>({alignment:a,standard:ontology.standards.find(s=>s.id===a.standard_id)}));const children=ontology.nodes.filter(child=>child.parent_ids.includes(id));
- $('#node-detail').innerHTML=`<div class="node-hero"><span class="tiny-label">${esc(n.id)} <b>·</b> ${esc(n.kind)} <b>·</b> ${esc(n.status)}</span><h2 id="node-title">${esc(n.label)}</h2><p>${esc(n.outcome)}</p><div class="node-hero-actions"><button id="review-node" class="primary-button">${state.reviewed.has(id)?'✓ Reviewed':'Mark as reviewed'}</button><button id="go-to-model" class="secondary-button">See at ${esc(stages[homeStage(n)].name.toLowerCase())} scale ↗</button></div></div><div class="node-body"><div class="evidence-grid"><section><span class="tiny-label">TRY IT</span><h3>Evidence of understanding</h3><p>${esc(n.evidence)}</p></section><section><span class="tiny-label">LOOK FOR</span><h3>Success criteria</h3><p>${esc(n.success_criteria)}</p></section></div>${n.notes?`<div class="qualification">${esc(n.notes)}</div>`:''}<h3 class="connection-heading">Follow the connections <span>${relations.length}</span></h3><p class="connection-note">Learning relationships are instructional inferences. All incoming hard prerequisites are required at the stated performance; transfer and recommendations do not imply necessity.</p>${groups.map(([rel,incoming,title])=>{const list=relations.filter(e=>e.relation===rel&&(incoming===null||e.incoming===incoming));if(!list.length)return '';return `<details class="connection-group" ${rel==='prerequisite'?'open':''}><summary><span class="relation-dot ${rel}"></span>${title}<b>${list.length}</b></summary>${list.map(e=>relatedButton(e.other,`${e.incoming?'Into this node':'From this node'} · ${e.rationale}${e.application_task?' Application: '+e.application_task:''}`)).join('')}</details>`}).join('')}${n.parent_ids.length||children.length?`<details class="connection-group"><summary><span class="relation-dot part"></span>Capability structure<b>${n.parent_ids.length+children.length}</b></summary><p class="connection-note">Containment describes broader and narrower capabilities, not learning order.</p>${n.parent_ids.map(parent=>relatedButton(parent,'Broader capability: this node is part of it.')).join('')}${children.map(child=>relatedButton(child.id,'Subcapability: a diagnostic part of this node.')).join('')}</details>`:''}<section class="source-crosswalk"><h3>College Board alignment</h3>${standards.length?standards.map(({standard:s,alignment:a})=>`<details><summary><a href="${esc(s.source_url)}" target="_blank" rel="noopener">${esc(s.code||s.type)} ↗</a><span>${esc(s.type)} · ${esc(a.relation)}</span></summary><p>${esc(a.rationale)}</p><small>${esc(s.locator)}</small></details>`).join(''):'<p>This is an authored foundational capability; it is not an additional official requirement.</p>'}</section></div>`;
- $('#node-back').disabled=state.history.length===0;const dialog=$('#node-dialog');if(!dialog.open)dialog.showModal();dialog.scrollTop=0;$('#review-node').onclick=()=>{if(state.reviewed.has(id))state.reviewed.delete(id);else state.reviewed.add(id);try{localStorage.setItem('biology-zoomout-reviewed',JSON.stringify([...state.reviewed]))}catch{}openNode(id,{addHistory:false});renderCards()};$('#go-to-model').onclick=()=>{dialog.close();setStage(homeStage(n),{resetScope:true});$('#scene-wrap').scrollIntoView({behavior:state.paused?'instant':'smooth',block:'center'});};updateHash();}
+  $('#app').innerHTML = `
+    <header class="topbar">
+      <button class="brand" id="home" aria-label="Biology Zoomout, return to the start of this path"><svg class="brand-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="21"/><circle cx="20" cy="24" r="14"/><circle cx="16" cy="24" r="7"/><circle class="brand-core" cx="13" cy="24" r="2.5"/></svg><span class="brand-type"><span>Biology</span><em>zoomout</em></span></button>
+      <div class="top-actions"><button id="paths-toggle" aria-haspopup="dialog">${icon('paths')}<span class="path-label">Paths</span><span id="active-path"></span></button><button id="nodes-toggle" aria-expanded="false" aria-controls="node-browser">${icon('search')}<span>Index</span><span class="count" id="nodes-count" hidden></span></button><button id="info-toggle" class="icon-button" aria-label="View settings and model sources" title="Settings & sources">${icon('info')}</button></div>
+    </header>
 
- $('#model-tabs').onclick=e=>{const family=e.target.closest('[data-family]'),model=e.target.closest('[data-model]');if(family){state.family=family.dataset.family;state.molecule=molecules.find(m=>m.family===state.family).id;renderModel();updateHash();}else if(model){state.model=model.dataset.model;renderModel();updateHash();}};
- $('#molecule-picker').onchange=e=>{if(e.target.id==='compound-select'){state.molecule=e.target.value;renderModel();updateHash()}};
- $('#representation-controls').onclick=e=>{const b=e.target.closest('[data-style]');if(!b)return;state.style=b.dataset.style;document.querySelectorAll('[data-style]').forEach(el=>{el.classList.toggle('selected',el===b);el.setAttribute('aria-pressed',String(el===b))});scene.setStyle(state.style)};
- $('#pause-btn').onclick=()=>{state.paused=!state.paused;scene.setPaused(state.paused);updatePause()};function updatePause(){$('#pause-btn').textContent=state.paused?icon('play'):icon('pause');$('#pause-btn').setAttribute('aria-label',state.paused?'Resume rotation and animation':'Pause rotation and animation');$('#pause-btn').title=state.paused?'Resume rotation and animation':'Pause rotation and animation';}updatePause();
- $('#labels-btn').onclick=()=>{state.labels=!state.labels;scene.setLabels(state.labels);$('#labels-btn').setAttribute('aria-pressed',String(state.labels))};$('#reset-btn').onclick=()=>scene.resetView();$('#closer-btn').onclick=()=>scene.zoomView(.85);$('#farther-btn').onclick=()=>scene.zoomView(1.15);$('#flow-toggle').onchange=e=>{state.flows=e.target.checked;scene.setFlow(state.flows)};
- $('#zoom-in').onclick=()=>setStage(state.stage-1);$('#zoom-out').onclick=()=>setStage(state.stage+1);$('#scene-smaller').onclick=()=>setStage(state.stage-1);$('#scene-larger').onclick=()=>setStage(state.stage+1);$('#scale-range').oninput=e=>setStage(+e.target.value);$('#scale-rail').onclick=e=>{const b=e.target.closest('[data-stage]');if(b)setStage(+b.dataset.stage)};
- let wheelSum=0;$('#scene-wrap').addEventListener('wheel',e=>{if(e.ctrlKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;const direction=Math.sign(e.deltaY);if((state.stage===0&&direction<0)||(state.stage===9&&direction>0))return;e.preventDefault();const now=performance.now();if(now-state.lastWheel<700)return;wheelSum+=e.deltaY*(e.deltaMode===1?18:1);if(Math.abs(wheelSum)>180){state.lastWheel=now;setStage(state.stage+Math.sign(wheelSum));wheelSum=0;}},{passive:false});
- $('#node-search').oninput=e=>{state.search=e.target.value;renderCards()};$('#unit-filter').onchange=e=>{state.unit=e.target.value;renderCards()};$('#stage-scope').onclick=()=>{state.scope='stage';state.search='';state.unit='all';$('#node-search').value='';$('#unit-filter').value='all';renderCards()};$('#all-scope').onclick=()=>{state.scope='all';renderCards()};
- $('#cards').onclick=e=>{const card=e.target.closest('[data-node]');if(card)openNode(card.dataset.node);if(e.target.id==='clear-filters')$('#stage-scope').click()};$('#node-detail').onclick=e=>{const b=e.target.closest('[data-open-node]');if(b)openNode(b.dataset.openNode)};$('#node-back').onclick=()=>{const id=state.history.pop();if(id)openNode(id,{addHistory:false})};
- document.querySelectorAll('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());for(const dialog of document.querySelectorAll('dialog'))dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
- $('#node-dialog').addEventListener('close',()=>{state.selectedNode=null;state.history=[];updateHash()});$('#sources-nav').onclick=()=>$('#about-dialog').showModal();$('#footer-sources').onclick=()=>$('#about-dialog').showModal();$('#library-nav').onclick=()=>{state.scope='all';state.search='';state.unit='all';$('#node-search').value='';$('#unit-filter').value='all';renderCards();$('#learning-panel').scrollIntoView({behavior:state.paused?'instant':'smooth',block:'start'});$('#node-search').focus({preventScroll:true})};$('#explore-nav').onclick=()=>{setStage(state.stage,{resetScope:true});$('#scene-wrap').scrollIntoView({behavior:state.paused?'instant':'smooth',block:'center'})};
- document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea')||$('dialog[open]'))return;if(e.key==='/'){e.preventDefault();$('#node-search').focus();}if(e.key==='ArrowRight'){e.preventDefault();setStage(state.stage+1)}if(e.key==='ArrowLeft'){e.preventDefault();setStage(state.stage-1)}});
- if(matchMedia('(pointer: coarse)').matches)$('#scene-hint').textContent='Drag to rotate · Use the arrows to change scale';
- window.addEventListener('hashchange',applyHash);applyHash();
-} catch(error) {console.error(error);$('#app').innerHTML='<div class="boot"><span class="brand-orbit">◎</span><h1>Biology Zoomout</h1><p>The learning data could not be loaded. Please reload to try again.</p><button onclick="location.reload()">Reload</button></div>';}
+    <main id="viewer">
+      <div class="scene" id="scene"></div>
+      <div class="model-heading">
+        <button id="structure-back" hidden></button>
+        <select id="model-select" aria-label="Select 3D model"></select>
+        <h1 id="model-name" hidden></h1>
+        <div class="model-meta"><span id="model-formula"></span><span id="model-size"></span></div>
+        <div class="structure-actions"><select id="part-select" aria-label="Inspect a structure in 3D" hidden></select><button id="field-note-toggle" aria-expanded="false" aria-controls="field-note">Field notes <span>↗</span></button></div>
+      </div>
+      <section id="field-note" aria-label="Contextual biology explanation" hidden>
+        <div class="field-note-heading"><span id="field-note-title"></span><select id="feature-select" aria-label="Explore a visible detail" hidden></select><button id="field-note-close" class="icon-button" aria-label="Close field notes">${icon('close')}</button></div>
+        <div class="note-tabs" role="group" aria-label="Explanation type"><button data-note-tab="look" aria-pressed="false">Notice</button><button data-note-tab="work" aria-pressed="true">Function</button><button data-note-tab="context" aria-pressed="false">Context</button></div>
+        <p id="field-note-text"></p><div class="field-note-links"><button id="field-note-inspect" hidden></button><button id="field-note-learn">Related AP node ↗</button><a id="field-note-source" target="_blank" rel="noopener">Source ↗</a></div>
+      </section>
+      <section id="process-panel" class="process-panel" aria-label="Animation controls" hidden>
+        <div class="process-toolbar"><button id="process-play" class="icon-button" aria-label="Play animation">${icon('play')}</button><span id="process-name"></span><input id="process-range" type="range" min="0" max="1" step="0.001" value="0" aria-label="Animation progress"><output id="process-time"></output><button id="process-details-toggle" class="icon-button" aria-label="Animation details" aria-expanded="false" aria-controls="process-details">${icon('expand')}</button></div>
+        <div class="process-cue"><span id="process-beat"></span><p id="process-caption" aria-live="polite" aria-atomic="true"></p></div>
+        <div id="process-details" hidden>
+          <div id="process-chapters" class="process-chapters" aria-label="Reaction stages"></div>
+          <div class="process-data"><select id="selection-environment" aria-label="Selection pressure" hidden><option value="favor-a">Favor aa</option><option value="favor-A">Favor AA</option><option value="neutral">Equal fitness</option></select><span id="process-metrics"></span><svg id="process-chart" viewBox="0 0 180 32" role="img" aria-label="Simulation history" hidden></svg></div>
+          <div class="process-options"><button id="process-restart">${icon('reset')} Replay</button><label>Speed <select id="process-speed" aria-label="Animation speed"><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label><button id="structure-only">View structure</button></div>
+        </div>
+      </section>
+      <button id="restore-animation" class="restore-animation" hidden>${icon('play')}<span>Show process</span></button>
+      <div class="atom-popover" id="picked-atom" hidden></div>
+      <div class="gesture-hint" id="gesture-hint">Scroll to zoom <span>·</span> Drag to rotate</div>
+    </main>
+
+    <section class="node-browser" id="node-browser" aria-label="Ontology nodes" hidden>
+      <div class="browser-toolbar">
+        <h2>Nodes <span class="count" id="card-count"></span></h2>
+        <input id="node-search" type="search" placeholder="Search nodes" aria-label="Search ontology nodes">
+        <div class="scope-switch"><button id="stage-scope" aria-pressed="true">This scale</button><button id="all-scope" aria-pressed="false">All 234</button></div>
+        <select id="unit-filter" aria-label="Filter by AP Biology unit"><option value="all">All units</option>${Object.entries(ontology.unit_names).map(([id,name])=>`<option value="${id}">${id} · ${esc(name)}</option>`).join('')}<option value="practices">Science practices</option><option value="foundations">Foundations & labs</option></select>
+        <button id="close-browser" class="icon-button" aria-label="Close nodes">${icon('close')}</button>
+      </div>
+      <div class="cards" id="cards"></div>
+    </section>
+
+    <nav class="scale-dock" aria-label="Biological zoom pathway">
+      <span id="path-next" class="sr-only"></span>
+      <button id="zoom-in" class="zoom-button" aria-label="Zoom in to a smaller scale" title="Smaller scale">${icon('plus')}</button>
+      <div class="scale-track">
+        <div class="scale-readout"><span id="stage-name">Molecules</span><span id="next-scale"></span></div>
+        <label class="sr-only" for="scale-range">Biological scale</label><input id="scale-range" type="range" min="0" max="9" step="0.001" value="0">
+        <div class="scale-stops"></div>
+      </div>
+      <button id="zoom-out" class="zoom-button" aria-label="Zoom out to a larger scale" title="Larger scale">${icon('minus')}</button>
+    </nav>
+
+    <dialog id="paths-dialog" aria-labelledby="paths-title"><div class="dialog-toolbar"><h2 id="paths-title">Choose a path</h2><button class="close-dialog icon-button" aria-label="Close paths">${icon('close')}</button></div><div class="paths-body"><div class="path-controls"><label>Path<select id="path-select" aria-label="Zoom-out pathway"></select></label><label>Context<select id="organism-select" aria-label="Plant or animal context"></select></label></div><ol id="path-preview"></ol><button id="explore-path">Explore this path <span>↗</span></button></div></dialog>
+    <dialog id="node-dialog" aria-labelledby="node-title"><div class="dialog-toolbar"><button id="node-back">← Back</button><button class="close-dialog icon-button" aria-label="Close learning node">${icon('close')}</button></div><div id="node-detail"></div></dialog>
+    <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title"><div class="dialog-toolbar"><h2 id="info-title">Model information</h2><button class="close-dialog icon-button" aria-label="Close model information">${icon('close')}</button></div><div class="info-body"><details class="settings" open><summary>View settings</summary><div class="view-controls" aria-label="3D controls"><button id="pause-btn" aria-label="Pause rotation">${icon('pause')}<span>Rotation</span></button><button id="labels-btn" aria-label="Show model labels" aria-pressed="false">${icon('labels')}<span>Labels</span></button><button id="reset-btn" aria-label="Reset view">${icon('reset')}<span>Reset view</span></button></div><label class="autoplay-setting"><input id="autoplay-setting" type="checkbox"> Play processes automatically</label><select id="process-select" aria-label="Choose an animation" hidden></select><div id="representation-controls"><button data-style="ball" aria-pressed="true">Ball & stick</button><button data-style="space" aria-pressed="false">Space filling</button></div></details><div id="model-information"></div><details><summary>Controls</summary><dl class="shortcuts"><dt>Scroll / pinch</dt><dd>Change scale</dd><dt>Drag</dt><dd>Rotate</dd><dt>← / →</dt><dd>Previous / next scale</dd><dt>Space</dt><dd>Pause / resume</dd><dt>/</dt><dd>Search nodes</dd><dt>Esc</dt><dd>Close</dd></dl></details><details><summary>Framework & sources</summary><p>AP Biology, 2026–27. All 234 original nodes and 496 learning relationships are available. Zoom paths follow biological components, compartments, and ecological membership. They are separate from the ontology’s prerequisite relationships.</p><ul class="source-list">${ontology.sources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)} ↗</a><small>${esc(source.edition)}</small></li>`).join('')}</ul><p>Each adjacent zoom step has an explicit biological relationship. Building-block and catalytic-binding steps differ from literal containment; the relationship notes below identify these cases. Models use representative dimensions and are not a calibrated reconstruction of one specimen.</p><p>Small molecules use published PubChem coordinates; crambin uses RCSB PDB 1CRN. Cell and organism scenes are procedural cutaways. Earth uses a satellite-derived texture. Colors, abundance, and biochemical playback times are illustrative; animation models and assumptions are documented above.</p><p>Habitat materials use local Poly Haven photographic maps: <a href="https://polyhaven.com/a/bark_brown_02" target="_blank" rel="noopener">Bark Brown 02</a> and <a href="https://polyhaven.com/a/forrest_ground_01" target="_blank" rel="noopener">Forest Ground 01</a> by Rob Tuytel, <a href="https://polyhaven.com/a/forest_ground_04" target="_blank" rel="noopener">Forest Ground 04</a> by Rob Tuytel and Rico Cilliers, and <a href="https://polyhaven.com/a/forest_slope" target="_blank" rel="noopener">Forest Slope</a> HDR lighting by Andreas Mischok. All are <a href="https://polyhaven.com/license" target="_blank" rel="noopener">CC0</a>. Organism shapes remain procedural illustrations, not scanned specimens. <a href="/textures/natural/sources.json" target="_blank" rel="noopener">Asset records ↗</a></p><a href="/data/ontology.json" download="ap-biology-ontology.json">Download ontology ↓</a></details><details><summary>Source qualifications</summary>${ontology.source_issues.map(issue=>`<p><b>${esc(issue.requirement)}</b> ${esc(issue.issue)} ${esc(issue.resolution)}</p>`).join('')}<p>Six classroom and laboratory implementation conditions remain unverified. Reviewed markers are local reading records, not mastery scores.</p></details></div></dialog>`;
+
+  let scene;
+  scene = new BiologyScene($('#scene'), {
+    onSelect: selection => {
+      if (selection.feature) openFieldNote(selection.feature);
+      else if (selection.inspect) focusStructure(selection.inspect);
+      else if (selection.node) openNode(selection.node);
+      else if (selection.atom) {
+        $('#picked-atom').hidden = false;
+        $('#picked-atom').innerHTML = `<span class="atom-symbol" style="--atom-color:${elements[selection.atom.element]?.color || '#aaa'}">${esc(selection.atom.element)}</span><div><b>${esc(selection.element)}</b><small>Atom ${esc(selection.atom.id)}</small></div><button class="icon-button" aria-label="Close atom information">${icon('close')}</button>`;
+        $('#picked-atom button').onclick = () => $('#picked-atom').hidden = true;
+      }
+    },
+    onPosition: position => updatePosition(position),
+    onZoom: delta => moveScale(state.target + delta),
+    onProcess: (snapshot,playing) => renderProcessFrame(snapshot,playing),
+    onError: () => {
+      $('#scene').innerHTML = '<div class="webgl-fallback"><h2>3D unavailable</h2><p>WebGL could not start. The scale controls and all ontology nodes are still available.</p></div>';
+      document.body.classList.add('no-webgl');
+    },
+  });
+
+  const currentStep=()=>route.steps[state.stage]||route.steps[0];
+  const currentID=()=>currentStep().id;
+  const infoFor=id=>pathwayInfo[id]||structureInfo[id]||modelInfo[id];
+  const maxPosition=()=>route.steps.length-1;
+  const partsFor=id=>infoFor(id)?.children||childrenOf(id);
+  function definitions(){return route.steps.map(step=>({...step,data:step.id==='molecules'?moleculeMap.get(state.molecule):null,protein}));}
+
+  function renderPathControls(){
+    $('#path-select').innerHTML=Object.entries(pathways).map(([id,p])=>`<option value="${id}" ${route.id===id?'selected':''}>${esc(p.name)}</option>`).join('')+(pathways[route.id]?'':`<option value="${esc(route.id)}" selected>${esc(infoFor(currentID())?.name||route.name)}</option>`);
+    $('#organism-select').innerHTML=route.organisms.map(id=>`<option value="${id}" ${route.organism===id?'selected':''}>${id==='plant'?'Plant':'Animal'}</option>`).join('');
+    $('#organism-select').disabled=route.organisms.length===1;
+    $('#scale-range').max=maxPosition();
+    $('.scale-stops').style.gridTemplateColumns=`repeat(${route.steps.length},minmax(0,1fr))`;
+    $('.scale-track').style.setProperty('--stop-inset',`${50/route.steps.length}%`);
+    $('.scale-stops').innerHTML=route.steps.map((step,index)=>`<button data-stage="${index}" data-model="${step.id}" aria-label="${esc(step.label)}" title="${esc(index?route.edges[index-1].reason:step.label)}"><i></i><span>${esc(step.label)}</span></button>`).join('');
+    $('#scene').dataset.path=route.id;$('#scene').dataset.organism=route.organism;
+    $('#active-path').textContent=route.name;
+    $('#paths-toggle').setAttribute('aria-label',`Choose a path; current path: ${route.name}`);
+    $('#paths-toggle').title=`${route.name} · ${route.organism==='plant'?'Plant':'Animal'}`;
+    $('#path-preview').innerHTML=route.steps.map((step,i)=>`<li ${step.id===currentID()?'aria-current=step':''}><span>${String(i+1).padStart(2,'0')}</span>${esc(step.label)}</li>`).join('');
+  }
+
+  function setRoute(next,{model=null,index=null,molecule=null,keepHistory=false}={}){
+    if(!keepHistory)state.focusStack=[];
+    route=next;state.pathId=route.id;state.organism=route.organism;
+    if(molecule&&moleculeMap.has(molecule))state.molecule=molecule;
+    if(route.molecule&&!supportsMolecule(route.id,moleculeMap.get(state.molecule)))state.molecule=route.molecule;
+    let position=index??(model?pathStep(route,model):0);if(!Number.isFinite(position)||position<0)position=0;
+    state.target=Math.min(maxPosition(),position);state.stage=Math.round(state.target);state.process=null;
+    scene.setProcess(null);renderPathControls();scene.setDefinitions(definitions());scene.seek(state.target,true);renderModelUI();updateHash();
+  }
+
+  function switchPath(id,organism=state.organism){
+    const current=currentID(),next=buildPath(id,organism);
+    let model=next.steps.some(s=>s.id===current)?current:null;
+    if(!model&&id===route.id){
+      const roles=[['plant-cell','animal-cell'],['leaf','epithelium'],['plant','rabbit'],['population','rabbit-population']];
+      const pair=roles.find(pair=>pair.includes(current));if(pair)model=pair.find(m=>next.steps.some(s=>s.id===m));
+    }
+    setRoute(next,{model});
+  }
+  function focusStructure(id){
+    if(!infoFor(id))return;
+    if(id===currentID()){openFieldNote();return;}
+    const previous={pathId:route.id,organism:state.organism,molecule:state.molecule,model:currentID()};
+    const next=routeForModel(id,state.organism,route.id,currentID());
+    state.focusStack.push(previous);setRoute(next,{model:id,keepHistory:true});scene.resetView();openFieldNote();
+  }
+  function leaveStructure(){
+    const previous=state.focusStack.pop();if(!previous)return;
+    setRoute(buildPath(previous.pathId,previous.organism),{model:previous.model,molecule:previous.molecule,keepHistory:true});
+  }
+
+  function modelData(){
+    if(currentID()!=='molecules')return infoFor(currentID());
+    const molecule=moleculeMap.get(state.molecule);return {...molecule,summary:molecule.description,note:molecule.coordinateNote};
+  }
+  function relevantIDs(){
+    if(currentID()!=='molecules')return infoFor(currentID()).nodes;
+    return {water:['APBIO-1.1-01','APBIO-1.1-02','APBIO-1.1-03'],'amino-acids':['APBIO-1.7-01','APBIO-1.7-05'],lipids:['APBIO-1.5-01','APBIO-1.5-02','APBIO-1.5-03'],nucleotides:['APBIO-1.6-01','APBIO-3.3-02'],carbohydrates:['APBIO-1.4-01','APBIO-1.3-01','APBIO-1.2-01']}[moleculeMap.get(state.molecule).family];
+  }
+  function contextNodes(){
+    const ids=new Set([...nodesAtStage(ontology,currentStep().stage).map(n=>n.id),...relevantIDs()]);
+    return ontology.nodes.filter(n=>ids.has(n.id));
+  }
+
+  function renderModelUI(){
+    closeFieldNote();
+    const id=currentID(),info=modelData(),isMolecule=id==='molecules',select=$('#model-select');
+    select.hidden=!isMolecule;$('#model-name').hidden=isMolecule;$('#model-name').textContent=info.name;
+    select.innerHTML=isMolecule?families.map(([family,label])=>`<optgroup label="${label}">${molecules.filter(m=>m.family===family).map(m=>`<option value="${m.id}" ${m.id===state.molecule?'selected':''}>${esc(m.name)}</option>`).join('')}</optgroup>`).join(''):'';
+    $('#model-formula').innerHTML=isMolecule?formulaHTML(esc(info.formula)):id==='protein'?'46 residues':'';
+    $('#model-size').textContent=currentStep().size;
+    const previous=state.focusStack.at(-1);$('#structure-back').hidden=!previous;
+    $('#structure-back').textContent=previous?`← ${infoFor(previous.model)?.name||'Previous view'}`:'';
+    const parts=partsFor(id);$('#part-select').hidden=!parts.length;
+    $('#part-select').innerHTML=`<option value="">Inspect structure…</option>${parts.map(part=>`<option value="${part}">${esc(infoFor(part)?.name||part)}</option>`).join('')}`;
+    const animations=processesFor(id);$('#process-select').hidden=!animations.length;
+    $('#process-select').innerHTML=`<option value="">Structure only</option>${animations.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}`;
+    $('#process-details').hidden=true;$('#process-details-toggle').setAttribute('aria-expanded','false');
+    activateProcess(animations[0]?.id||null);
+    $('#nodes-count').textContent=contextNodes().length;$('#stage-scope').textContent='This structure';$('#picked-atom').hidden=true;
+    renderCards();if($('#info-dialog').open)renderInformation();
+  }
+  function closeFieldNote(){
+    state.noteOpen=false;state.noteFeature=null;$('#field-note').hidden=true;$('#field-note-toggle').setAttribute('aria-expanded','false');
+  }
+  function openFieldNote(feature=null){
+    state.noteOpen=true;state.noteFeature=feature;state.noteTab='work';
+    $('#gesture-hint').classList.add('dismissed');scene.clearHover();
+    $('#process-details').hidden=true;$('#process-details-toggle').setAttribute('aria-expanded','false');
+    $('#picked-atom').hidden=true;renderFieldNote();
+  }
+  function renderFieldNote(){
+    const data=modelData(),feature=featureNotes[state.noteFeature],note=feature||fieldNotes[currentID()]||{look:data.note,work:data.summary,source:data.source?.url};
+    const next=route.steps[state.stage+1],edge=route.edges[state.stage];
+    $('#field-note').hidden=!state.noteOpen;$('#field-note-toggle').setAttribute('aria-expanded',String(state.noteOpen));
+    $('#field-note-title').textContent=feature?.name||data.name;
+    const features=scene.activeView?.features||[];
+    $('#feature-select').hidden=!features.length;$('#field-note-title').hidden=!!features.length;
+    $('#feature-select').innerHTML=`<option value="">${esc(data.name)}</option>`+features.map(id=>`<option value="${esc(id)}" ${id===state.noteFeature?'selected':''}>${esc(featureNotes[id].name)}</option>`).join('');
+    const context=feature?`This detail is part of the ${data.name.toLowerCase()} view. ${feature.target&&feature.target!==currentID()?`Inspect ${infoFor(feature.target)?.name.toLowerCase()} to follow its biological connections.`:''}`:edge?`${next.label}: ${edge.reason}`:'This view brings the local ecosystem into the global biosphere.';
+    $('#field-note-text').textContent=state.noteTab==='context'?context:note[state.noteTab]||data.summary;
+    for(const button of document.querySelectorAll('[data-note-tab]'))button.setAttribute('aria-pressed',String(button.dataset.noteTab===state.noteTab));
+    const source=state.noteTab==='context'&&!feature&&edge?edge.source:note.source;
+    $('#field-note-source').hidden=!source;$('#field-note-source').href=source||'#';
+    const target=feature?.target;$('#field-note-inspect').hidden=!target||target===currentID();
+    $('#field-note-inspect').textContent=target?`Inspect ${infoFor(target)?.name} ↗`:'';
+    $('#field-note-inspect').onclick=()=>{if(target)focusStructure(target);};
+    const nodeId=feature?.node||relevantIDs()[0];$('#field-note-learn').title=nodeMap.get(nodeId)?.label||'';
+    $('#field-note-learn').textContent=`AP Biology · ${nodeMap.get(nodeId)?.label||'Related skill'} ↗`;
+    $('#field-note-source').textContent='Biology reference ↗';
+    $('#field-note-learn').onclick=()=>openNode(nodeId);
+  }
+  function activateProcess(id){
+    state.process=id;$('#process-select').value=id||'';
+    $('#restore-animation').hidden=!!id||!processesFor(currentID()).length||!scene.renderer;
+    scene.setProcess(id);
+    if(id&&state.autoplay&&!state.animationPaused&&!scene.reducedMotion)scene.playProcess(true);
+  }
+  function updatePosition(position){
+    state.position=position;const index=Math.max(0,Math.min(maxPosition(),Math.round(position))),step=route.steps[index];
+    $('#scale-range').value=position;$('#scale-range').style.setProperty('--progress',`${position/maxPosition()*100}%`);
+    $('#scale-range').setAttribute('aria-valuetext',`${step.label}, ${step.size}, ${route.name} path`);
+    $('#stage-name').textContent=step.label;$('#next-scale').textContent=route.steps[index+1]?`${route.steps[index+1].label} →`:'';
+    $('#zoom-in').disabled=state.target<=0;$('#zoom-out').disabled=state.target>=maxPosition();
+    const next=route.steps[index+1];$('#path-next').textContent=next?`Next: ${next.label}`:'Biosphere';$('#path-next').title=route.edges[index]?.reason||'';
+    for(const button of document.querySelectorAll('[data-stage]'))button.setAttribute('aria-current',+button.dataset.stage===index?'step':'false');
+    if(index!==state.stage){state.stage=index;renderModelUI();}
+  }
+  let hashTimer;
+  function moveScale(position,immediate=false){
+    state.target=Math.max(0,Math.min(maxPosition(),position));scene.seek(state.target,immediate);
+    $('#gesture-hint').classList.add('dismissed');clearTimeout(hashTimer);hashTimer=setTimeout(updateHash,180);
+  }
+  function updateHash(){
+    const index=Math.round(state.target),parameters=new URLSearchParams({path:route.id,organism:state.organism,at:route.steps[index].key});
+    if(route.steps[0].id==='molecules')parameters.set('molecule',state.molecule);
+    if(Math.abs(state.target-index)>.001)parameters.set('zoom',state.target.toFixed(3));
+    if(state.selectedNode)parameters.set('node',state.selectedNode);
+    history.replaceState(null,'',`#${parameters}`);
+  }
+  function readHash(){
+    clearTimeout(hashTimer);const parameters=new URLSearchParams(location.hash.slice(1));state.focusStack=[];
+    const requestedMolecule=moleculeMap.get(parameters.get('molecule')),organism=parameters.get('organism')==='animal'?'animal':'plant';
+    let next=buildPath('starch',organism),model=null,index=null;
+    if(parameters.has('path')){
+      try{next=buildPath(parameters.get('path'),organism);}catch{}
+      model=parameters.get('at');
+      const raw=Number(parameters.get('zoom'));if(parameters.has('zoom')&&Number.isFinite(raw))index=Math.max(0,Math.min(next.steps.length-1,raw));
+    }else if(parameters.has('scale')||parameters.has('focus')){
+      const stage=stages.find(s=>s.id===parameters.get('scale'))||stages[0];
+      model=parameters.get('focus')||(stage.models.includes(parameters.get('model'))?parameters.get('model'):stage.models[0]);
+      if(model==='molecules'){next=buildPath(requestedMolecule?pathForMolecule(requestedMolecule):'starch',organism);}
+      else if(infoFor(model))next=routeForModel(model,model==='animal-cell'?'animal':organism,'starch');
+    }else if(requestedMolecule)next=buildPath(pathForMolecule(requestedMolecule),organism);
+    setRoute(next,{model,index,molecule:requestedMolecule?.id});
+    const id=parameters.get('node');if(nodeMap.has(id))openNode(id);else if($('#node-dialog').open)$('#node-dialog').close();
+  }
+  function showNodeModel(node){
+    const entry=Object.entries({...modelInfo,...structureInfo,...pathwayInfo}).find(([,info])=>info.nodes.includes(node.id));
+    const defaults=['molecules','dna','membrane','mitochondrion','nucleus','plant','population','community','ecosystem','biosphere'];
+    const model=entry?.[0]||defaults[homeStage(node)];
+    if(model==='molecules')setRoute(buildPath(node.id.startsWith('APBIO-1.1')?'water':'starch',state.organism));
+    else setRoute(routeForModel(model,state.organism,route.id),{model});
+  }
+
+  function toggleBrowser(open, focusSearch = false) {
+    state.drawer = open;if(open)closeFieldNote();
+    document.body.classList.toggle('nodes-open',open);
+    $('#node-browser').hidden = !open;
+    $('#nodes-toggle').setAttribute('aria-expanded',String(open));
+    if (open) { renderCards();if(focusSearch) $('#node-search').focus(); }
+    else $('#nodes-toggle').focus({preventScroll:true});
+  }
+
+  function renderCards() {
+    if (!state.drawer) return;
+    const query = state.query.toLowerCase().trim();
+    const all = state.scope==='all'||query||state.unit!=='all';
+    let nodes = all ? ontology.nodes : contextNodes();
+    if (query) nodes=nodes.filter(node=>`${node.id} ${node.label} ${node.outcome} ${node.official_codes.join(' ')}`.toLowerCase().includes(query));
+    if (state.unit!=='all') nodes=nodes.filter(node=>state.unit==='practices'?node.id.startsWith('APBIO-P'):state.unit==='foundations'?/^APBIO-[FL]-/.test(node.id):node.id.startsWith(`APBIO-${state.unit}.`));
+    const relevant = new Set(relevantIDs());
+    nodes=[...nodes].sort((a,b)=>(+relevant.has(b.id)-+relevant.has(a.id))||a.id.localeCompare(b.id,undefined,{numeric:true}));
+    $('#card-count').textContent=nodes.length;
+    $('#stage-scope').setAttribute('aria-pressed',String(!all));
+    $('#all-scope').setAttribute('aria-pressed',String(!!all));
+    $('#cards').innerHTML=nodes.length ? nodes.map(node=>`<button class="node-card" data-node="${node.id}"><span class="card-meta">${esc(node.id)}<span>${state.reviewed.has(node.id)?'✓':esc(node.kind)}</span></span><h3>${esc(node.label)}</h3><p>${esc(node.outcome)}</p><span class="card-footer">${node.prerequisite_ids.length?`${node.prerequisite_ids.length} prerequisite${node.prerequisite_ids.length===1?'':'s'}`:'No hard prerequisite'}<span aria-hidden="true">↗</span></span></button>`).join('') : '<div class="empty-state">No matching nodes. <button id="clear-filters">Clear filters</button></div>';
+  }
+
+  function openNode(id,{addHistory=true}={}) {
+    const node = nodeMap.get(id);
+    if (!node) return;
+    if (addHistory&&state.selectedNode&&state.selectedNode!==id) state.history.push(state.selectedNode);
+    state.selectedNode=id;
+    $('#node-detail').innerHTML=nodeDetail(ontology,node,state.reviewed.has(id));
+    $('#node-back').disabled=!state.history.length;
+    if (!$('#node-dialog').open) $('#node-dialog').showModal();
+    $('#node-dialog').scrollTop=0;
+    scene.setPaused(true);
+    $('#review-node').onclick=()=>{
+      if(state.reviewed.has(id))state.reviewed.delete(id);else state.reviewed.add(id);
+      try {localStorage.setItem('biology-zoomout-reviewed',JSON.stringify([...state.reviewed]));}catch{}
+      openNode(id,{addHistory:false});renderCards();
+    };
+    $('#go-to-model').onclick=()=>{ $('#node-dialog').close();toggleBrowser(false);showNodeModel(node); };
+    updateHash();
+  }
+
+  function renderInformation() {
+    const info=modelData();
+    const isMolecule=currentID()==='molecules';
+    const source=info.source||(currentID()==='protein'?protein.source:null);
+    let legend=info.legend||[];
+    if(isMolecule){const counts={};for(const atom of info.atoms)counts[atom.element]=(counts[atom.element]||0)+1;legend=Object.entries(counts).map(([element,count])=>[elements[element]?.color||'#aaa',`${element} · ${count}`]);}
+    $('#model-information').innerHTML=`<h3>${esc(info.name)}</h3><p>${esc(info.summary)}</p><div class="model-legend">${legend.map(([color,label])=>`<span><i style="background:${color}"></i>${esc(label)}</span>`).join('')}</div><p class="method-note">${esc(info.note)}</p>${source?`<a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.label)} ↗</a>`:''}`;
+    const animations=processesFor(currentID());
+    if(animations.length)$('#model-information').insertAdjacentHTML('beforeend',`<h3>Animation models</h3>${animations.map(p=>`<p><b>${esc(p.name)}</b> ${esc(p.note)} <a href="${esc(p.source)}" target="_blank" rel="noopener">Biology reference ↗</a></p>`).join('')}`);
+    $('#model-information').insertAdjacentHTML('beforeend',`<details class="path-reasons"><summary>${esc(route.name)} · biological connections</summary><ol>${route.edges.map((edge,i)=>`<li><b>${esc(route.steps[i].id==='molecules'?moleculeMap.get(state.molecule).name:route.steps[i].label)} → ${esc(route.steps[i+1].label)}</b><small>${esc(edge.relation)}</small><p>${esc(edge.reason)} <a href="${esc(edge.source)}" target="_blank" rel="noopener">Reference ↗</a></p></li>`).join('')}</ol></details>`);
+    $('#representation-controls').hidden=!isMolecule;
+    for(const button of document.querySelectorAll('[data-style]'))button.setAttribute('aria-pressed',String(button.dataset.style===state.style));
+  }
+
+  function renderProcessFrame(snapshot,playing) {
+    const visible=!!snapshot&&!!scene?.renderer;
+    $('#process-panel').hidden=!visible;document.body.classList.toggle('process-active',visible);
+    if(!visible)return;
+    $('#process-name').textContent=processes[snapshot.id].name;
+    $('#process-panel').dataset.playing=String(playing);
+    $('#process-range').value=snapshot.t;
+    $('#process-range').setAttribute('aria-valuetext',snapshot.time);
+    $('#process-time').textContent=snapshot.time;
+    if($('#process-caption').textContent!==snapshot.caption)$('#process-caption').textContent=snapshot.caption;
+    $('#process-beat').textContent=['selection','predation','succession'].includes(snapshot.id)?'Now':`${snapshot.phase+1} / 4`;
+    const chapterKey=`${snapshot.id}:${snapshot.phase}`;
+    if($('#process-chapters').dataset.key!==chapterKey){
+      $('#process-chapters').dataset.key=chapterKey;
+      $('#process-chapters').innerHTML=(phaseStarts[snapshot.id]||[]).map((t,i)=>`<button data-process-at="${t}" aria-label="${esc(processes[snapshot.id].steps[i])}" aria-pressed="${i===snapshot.phase}">${i+1}</button>`).join('');
+    }
+    $('#process-play').innerHTML=icon(playing?'pause':'play');
+    $('#process-play').setAttribute('aria-label',playing?'Pause animation':'Play animation');
+    $('#selection-environment').hidden=snapshot.id!=='selection';
+    $('#process-metrics').innerHTML=snapshot.metrics.map(([label,value])=>`<span>${esc(label)} <b>${esc(value)}</b></span>`).join('');
+    const chart=$('#process-chart');chart.toggleAttribute('hidden',!['selection','predation'].includes(snapshot.id));
+    if(!chart.hasAttribute('hidden')){
+      const selection=snapshot.id==='selection',series=snapshot.series,limit=selection?snapshot.generation:Math.floor(snapshot.t*(series.length-1));
+      const keys=selection?['p','q']:['prey','predator'],max=selection?1:Math.max(...series.flatMap(p=>[p.prey,p.predator]));
+      chart.innerHTML=keys.map((key,index)=>`<path d="${series.slice(0,limit+1).filter((_,i)=>selection||i%10===0||i===limit).map((p,i,points)=>`${i?'L':'M'}${2+(selection?p.generation/12:p.t/30)*176},${30-p[key]/max*27}`).join(' ')}" stroke="${index?'#b64f32':'#385943'}" stroke-width="1.5" fill="none"/>`).join('');
+      chart.setAttribute('aria-label',selection?'Allele frequencies across generations: A in green, a in rust':'Population history: prey in green, predators in rust');
+    }
+  }
+
+  function setPaused() {
+    state.paused=!state.paused;
+    scene.setPaused(state.paused);
+    updatePause();
+  }
+  function updatePause() {
+    $('#pause-btn').innerHTML=icon(state.paused?'play':'pause')+`<span>${state.paused?'Resume rotation':'Pause rotation'}</span>`;
+    $('#pause-btn').setAttribute('aria-label',state.paused?'Resume rotation':'Pause rotation');
+    $('#pause-btn').title=state.paused?'Resume rotation':'Pause rotation';
+  }
+  function clearFilters() {
+    state.scope='stage';state.query='';state.unit='all';$('#node-search').value='';$('#unit-filter').value='all';renderCards();
+  }
+
+  $('#field-note-toggle').onclick=()=>state.noteOpen?closeFieldNote():openFieldNote();
+  $('#field-note-close').onclick=closeFieldNote;
+  $('#feature-select').onchange=event=>{state.noteFeature=event.target.value||null;renderFieldNote();};
+  for(const button of document.querySelectorAll('[data-note-tab]'))button.onclick=()=>{state.noteTab=button.dataset.noteTab;renderFieldNote();};
+  $('#home').onclick=()=>moveScale(0);
+  $('#paths-toggle').onclick=()=>{renderPathControls();$('#paths-dialog').showModal();};
+  $('#explore-path').onclick=()=>$('#paths-dialog').close();
+  $('#autoplay-setting').checked=state.autoplay;
+  $('#autoplay-setting').onchange=event=>{state.autoplay=event.target.checked;state.animationPaused=false;try{localStorage.setItem('biology-zoomout-autoplay',String(state.autoplay));}catch{}scene.playProcess(state.autoplay&&!scene.reducedMotion);};
+  $('#process-details-toggle').onclick=()=>{const open=$('#process-details').hidden;if(open)closeFieldNote();$('#process-details').hidden=!open;$('#process-details-toggle').setAttribute('aria-expanded',String(open));};
+  $('#structure-only').onclick=()=>activateProcess(null);
+  $('#restore-animation').onclick=()=>activateProcess(processesFor(currentID())[0]?.id||null);
+  $('#path-select').onchange=event=>switchPath(event.target.value);
+  $('#organism-select').onchange=event=>switchPath(route.id,event.target.value);
+  $('#structure-back').onclick=()=>leaveStructure();
+  $('#part-select').onchange=event=>{if(event.target.value)focusStructure(event.target.value);};
+  $('#process-select').onchange=event=>activateProcess(event.target.value||null);
+  $('#process-play').onclick=()=>{state.animationPaused=scene.processPlaying;scene.playProcess(!scene.processPlaying);};
+  $('#process-restart').onclick=()=>{state.animationPaused=false;scene.seekProcess(0);scene.playProcess(state.autoplay&&!scene.reducedMotion);};
+  $('#process-range').oninput=event=>{const value=Number(event.target.value);state.animationPaused=true;scene.playProcess(false);scene.seekProcess(value);};
+  $('#process-chapters').onclick=event=>{const button=event.target.closest('[data-process-at]');if(button){state.animationPaused=true;scene.playProcess(false);scene.seekProcess(Number(button.dataset.processAt));}};
+  $('#process-speed').onchange=event=>scene.processRate=Number(event.target.value);
+  $('#selection-environment').onchange=event=>{scene.setEnvironment(event.target.value);scene.playProcess(state.autoplay&&!state.animationPaused&&!scene.reducedMotion);};
+  $('#nodes-toggle').onclick=()=>toggleBrowser(!state.drawer);
+  $('#close-browser').onclick=()=>toggleBrowser(false);
+  $('#node-search').oninput=event=>{state.query=event.target.value;renderCards();};
+  $('#unit-filter').onchange=event=>{state.unit=event.target.value;renderCards();};
+  $('#stage-scope').onclick=clearFilters;
+  $('#all-scope').onclick=()=>{state.scope='all';renderCards();};
+  $('#cards').onclick=event=>{const card=event.target.closest('[data-node]');if(card)openNode(card.dataset.node);if(event.target.id==='clear-filters')clearFilters();};
+  $('#node-detail').onclick=event=>{const button=event.target.closest('[data-open-node]');if(button)openNode(button.dataset.openNode);};
+  $('#node-back').onclick=()=>{const id=state.history.pop();if(id)openNode(id,{addHistory:false});};
+  $('#model-select').onchange=event=>{
+    const molecule=moleculeMap.get(event.target.value);setRoute(buildPath(pathForMolecule(molecule,route.id),state.organism),{model:'molecules',molecule:molecule.id});
+  };
+  $('#scale-range').oninput=event=>moveScale(Number(event.target.value),true);
+  $('#scale-range').onkeydown=event=>{
+    const actions={ArrowRight:Math.floor(state.target+.001)+1,ArrowUp:Math.floor(state.target+.001)+1,ArrowLeft:Math.ceil(state.target-.001)-1,ArrowDown:Math.ceil(state.target-.001)-1,Home:0,End:maxPosition()};
+    if(event.key in actions){event.preventDefault();moveScale(actions[event.key],true);}
+  };
+  $('.scale-stops').onclick=event=>{const button=event.target.closest('[data-stage]');if(button)moveScale(Number(button.dataset.stage));};
+  $('#zoom-in').onclick=()=>moveScale(Math.ceil(state.target-.001)-1);
+  $('#zoom-out').onclick=()=>moveScale(Math.floor(state.target+.001)+1);
+  $('#pause-btn').onclick=setPaused;
+  $('#labels-btn').onclick=()=>{state.labels=!state.labels;scene.setLabels(state.labels);$('#labels-btn').setAttribute('aria-pressed',String(state.labels));};
+  $('#reset-btn').onclick=()=>scene.resetView();
+  $('#info-toggle').onclick=()=>{renderInformation();$('#info-dialog').showModal();scene.setPaused(true);};
+  $('#representation-controls').onclick=event=>{const button=event.target.closest('[data-style]');if(button){state.style=button.dataset.style;scene.setStyle(state.style);renderInformation();}};
+  $('#scene').addEventListener('wheel',event=>{
+    event.preventDefault();
+    const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?600:1);
+    moveScale(state.target+Math.max(-.65,Math.min(.65,delta*.0018)));
+  },{passive:false});
+  $('#scene').addEventListener('pointerdown',()=>$('#gesture-hint').classList.add('dismissed'));
+  for(const button of document.querySelectorAll('.close-dialog'))button.onclick=()=>button.closest('dialog').close();
+  for(const dialog of document.querySelectorAll('dialog')){
+    dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dialog.close();});
+    dialog.addEventListener('close',()=>{scene.setPaused(state.paused);});
+  }
+  $('#node-dialog').addEventListener('close',()=>{state.selectedNode=null;state.history=[];updateHash();});
+  document.addEventListener('keydown',event=>{
+    if($('dialog[open]'))return;
+    if(event.key==='Escape'&&state.noteOpen){closeFieldNote();return;}
+    if(event.key==='Escape'&&state.drawer){toggleBrowser(false);return;}
+    if(event.key==='Escape'&&state.focusStack.length){leaveStructure();return;}
+    if(event.target.matches('input,select,textarea'))return;
+    if(event.key==='/'){event.preventDefault();toggleBrowser(true,true);}
+    if(event.key==='ArrowRight'){event.preventDefault();$('#zoom-out').click();}
+    if(event.key==='ArrowLeft'){event.preventDefault();$('#zoom-in').click();}
+    if(event.code==='Space'&&event.target===document.body){event.preventDefault();state.process?$('#process-play').click():setPaused();}
+  });
+  if(matchMedia('(pointer: coarse)').matches)$('#gesture-hint').textContent='Pinch to zoom · Drag to rotate';
+  setTimeout(()=>$('#gesture-hint').classList.add('dismissed'),6500);
+  const processResize=new ResizeObserver(()=>{
+    if(!$('#process-panel').hidden)document.body.style.setProperty('--process-clearance',`${$('#process-panel').offsetHeight+30}px`);
+  });processResize.observe($('#process-panel'));
+  updatePause();readHash();
+  window.addEventListener('hashchange',readHash);
+} catch(error) {
+  console.error(error);
+  $('#app').innerHTML='<div class="boot"><h1>Biology Zoomout</h1><p>Unable to load model data.</p><button onclick="location.reload()">Reload</button></div>';
+}
