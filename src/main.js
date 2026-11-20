@@ -1,5 +1,6 @@
 import './styles.css';
 import './lessons.css';
+import {mountInstallUI} from './install-app.js';
 import { BiologyScene, elements } from './scene.js';
 import { stages, modelInfo, homeStage, nodesAtStage, formulaHTML } from './content.js';
 import { esc, nodeDetail } from './node-detail.js';
@@ -500,6 +501,7 @@ try {
     onExit(){scene.setPaused(state.paused);$('#learn-toggle').classList.remove('active');},
   });
   $('#learn-toggle').onclick=()=>lessonUI.openCatalog();
+  mountInstallUI();
   updatePause();readHash();
   window.addEventListener('hashchange',readHash);
 } catch(error) {

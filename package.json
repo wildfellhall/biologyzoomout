@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": {"dev": "vite --host 127.0.0.1", "build": "vite build", "preview": "vite preview --host 127.0.0.1", "test": "node --test tests/*.test.mjs"},
+  "scripts": {"dev": "vite --host 127.0.0.1 --port 5174 --strictPort", "build": "vite build && node scripts/build-offline.mjs", "preview": "vite preview --host 127.0.0.1 --port 5173 --strictPort", "test": "node --test tests/*.test.mjs", "test:pwa": "npm run build && node tests/pwa-browser.mjs"},
   "dependencies": {"three": "0.187.0"},
   "devDependencies": {"vite": "8.3.8", "playwright": "1.62.1"}
 }
