@@ -1,3 +1,5 @@
+import {conceptQuestions} from './practice/concepts.js';
+import {loadPractice,savePractice,practiceRecord,submitPractice,recordKey} from './practice/progress.js';
 import {activities,activityMarkup,diagramSVG,loadExperiments,saveExperiments,experimentResult} from './lesson-activities.js';
 import {lessonById,checkpoints,lessonKey} from './lessons.js';
 import {loadProgress,saveProgress,beginLesson,answerStep,isAnswered,finishLesson,reviewItems,recordReview} from './lesson-progress.js';
@@ -5,6 +7,7 @@ import {esc} from './node-detail.js';
 
 export function createLessonUI(api){
  const $=s=>document.querySelector(s);let storage;try{storage=localStorage;}catch{}
+ let conceptProgress=loadPractice(storage),conceptPersistent=!!storage;
  let labData=loadExperiments(storage),running=null,lastDiagram='';
  let progress=loadProgress(storage),active=null,stepIndex=0,reviewQueue=[],reviewIndex=0,reviewAnswers={},revealed=new Set(),lastCue='',persistent=!!storage;
  const player=$('#process-panel'),viewer=$('#viewer');
@@ -28,6 +31,7 @@ export function createLessonUI(api){
  function openCatalog(){savePosition();api.openDashboard();}
  function start(id,{step:requested=null}={}){
   const l=lessonById(id);if(!l)return false;
+  if(conceptPersistent)conceptProgress=loadPractice(storage);
   const saved=progress.lessons[id];
   active=id;stepIndex=Math.max(0,Math.min(l.steps.length-1,Number.isInteger(requested)?requested:saved?.finishedAt!==null&&saved?.finishedAt!==undefined?0:saved?.step||0));
   revealed=new Set();document.body.classList.add('lesson-mode');panel.hidden=false;$('#lesson-next').hidden=false;player.remove();$('#lesson-player-slot').append(player);
@@ -54,7 +58,7 @@ export function createLessonUI(api){
   $('#lesson-feedback').hidden=true;
   if(s.type==='question'){
    $('#lesson-content').innerHTML=`<p class="lesson-prompt">${esc(s.prompt)}</p><div class="lesson-choices" role="group" aria-label="Choose an explanation">${s.options.map((o,i)=>`<button data-answer="${o.id}" aria-pressed="${a?.choice===o.id}"><span>${String.fromCharCode(65+i)}</span>${esc(o.text)}</button>`).join('')}</div>`;
-   if(a?.choice){const chosen=s.options.find(o=>o.id===a.choice);$('#lesson-feedback').hidden=false;$('#lesson-feedback').dataset.result=a.choice===s.correct?'correct':'retry';$('#lesson-feedback').innerHTML=`<b>${a.choice===s.correct?'That follows from the model.':'Reconsider the mechanism.'}</b><p>${esc(chosen.feedback)}</p>`;}
+   if(a?.choice){const chosen=s.options.find(o=>o.id===a.choice);$('#lesson-feedback').hidden=false;$('#lesson-feedback').dataset.result=a.choice===s.correct?'correct':'retry';$('#lesson-feedback').innerHTML=`<b>${a.choice===s.correct?'Correct.':'Review the concept.'}</b><p>${esc(chosen.feedback)}</p>`;}
   }else if(s.type==='recall'){
    const shown=revealed.has(key())||!!a?.rating;
    $('#lesson-content').innerHTML=`<p class="lesson-prompt">${esc(s.prompt)}</p><label class="sr-only" for="lesson-response">Your explanation</label><textarea id="lesson-response" rows="3" maxlength="2000" placeholder="Write your explanation before revealing the comparison…">${esc(a?.text||'')}</textarea><button id="lesson-reveal" ${shown?'hidden':''} ${(a?.text?.trim().length||0)<12?'disabled':''}>Compare your explanation</button>${shown?`<div class="lesson-rubric"><b>Check for these ideas</b><ul>${s.rubric.map(p=>`<li>${esc(p)}</li>`).join('')}</ul><details><summary>One possible explanation</summary><p>${esc(s.sample)}</p></details><div class="self-check" role="group" aria-label="Assess your explanation"><button data-rating="again" aria-pressed="${a?.rating==='again'}">I need more practice</button><button data-rating="ready" aria-pressed="${a?.rating==='ready'}">I included both ideas</button></div></div>`:''}`;
@@ -72,6 +76,7 @@ export function createLessonUI(api){
   if(canPlay()){
    labData[l.id]??={condition:activities[l.id].options[0].id,prediction:'',runs:[]};
    $('#lesson-live').innerHTML=activityMarkup(l.id,labData[l.id]);
+   renderConceptReview();
    $('#lesson-tabs').append($('#lesson-live .activity-tabs'));
    $('#experiment-pane .experiment-question').hidden=s.title===activities[l.id].prompt;
    $('#lesson-content').setAttribute('role','tabpanel');$('#lesson-content').setAttribute('aria-labelledby','read-tab');
@@ -159,6 +164,13 @@ export function createLessonUI(api){
    saveExperiments(storage,labData);running=null;$('#experiment-status').textContent=`Run complete. ${result}`;renderRuns();
   }
  }
+ function renderConceptReview(){
+  const check=activities[lesson()?.id]?.check,q=conceptQuestions.find(q=>q.id===check?.id),r=q?conceptProgress.records[recordKey(q)]:null;
+  if(!r?.reviewing||!$('#quick-feedback'))return;
+  const index=q.options.findIndex(o=>o.id===r.choice);if(index<0)return;
+  for(const b of panel.querySelectorAll('[data-quick-choice]'))b.setAttribute('aria-pressed',String(Number(b.dataset.quickChoice)===index));
+  $('#quick-feedback').hidden=false;$('#quick-feedback').textContent=(index===check.correct?'Correct. ':'Review the concept. ')+check.feedbacks[index]+(conceptPersistent?'':' Progress could not be saved on this device.');
+ }
  panel.addEventListener('keydown',event=>{
   const tab=event.target.closest('[data-activity-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
   event.preventDefault();event.stopPropagation();const names=['read','diagram','experiment','check'],i=names.indexOf(tab.dataset.activityTab);
@@ -170,7 +182,7 @@ export function createLessonUI(api){
  $('#lesson-stage-next').onclick=()=>selectStage(Number($('#lesson-stage-select').value)+1);
  panel.addEventListener('click',event=>{
   const tab=event.target.closest('[data-activity-tab]');if(tab){selectActivity(tab.dataset.activityTab);return;}
-  const quick=event.target.closest('[data-quick-choice]');if(quick){const c=activities[lesson().id].check;for(const b of panel.querySelectorAll('[data-quick-choice]'))b.setAttribute('aria-pressed',String(b===quick));$('#quick-feedback').hidden=false;$('#quick-feedback').textContent=(Number(quick.dataset.quickChoice)===c.correct?'Yes. ':'Reconsider. ')+c.feedback;return;}
+  const quick=event.target.closest('[data-quick-choice]');if(quick){const c=activities[lesson().id].check,q=conceptQuestions.find(q=>q.id===c.id);if(q){const r=practiceRecord(conceptProgress,q);r.reviewing=false;r.choice=q.options[Number(quick.dataset.quickChoice)].id;submitPractice(conceptProgress,q);conceptPersistent=savePractice(storage,conceptProgress);renderConceptReview();}return;}
   if(event.target.id==='experiment-run'){runExperiment();return;}
   if(event.target.id==='experiment-reset'){running=null;api.scene.playProcess(false);api.scene.seekProcess(0);$('#experiment-status').textContent='Reset to the same starting conditions.';return;}
 

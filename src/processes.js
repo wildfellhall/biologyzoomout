@@ -1,3 +1,4 @@
+import {divisionState,divisionStages} from './division-state.js';
 import {courseContent} from './course/content.js';
 import {labs,sampleLab} from './course/labs.js';
 import {replicationState,translationState,peptideState} from './reaction-state.js';
@@ -71,10 +72,26 @@ export const processes={
   'A developing woodland changes shade and habitat structure.'
  ],'45-6-community-ecology','One authored 80-year secondary-succession scenario, not a forecast. Growth curves illustrate turnover; rates, species, and final communities vary with conditions.'),
 };
+processes['dna-breathing']=define('DNA accessibility',['nucleosome'],16,[
+ 'DNA is wrapped around the histone core.',
+ 'The ends of the wrapped DNA loosen locally.',
+ 'Transiently exposed DNA is more accessible to other proteins.',
+ 'DNA rewraps around the histones; its sequence is unchanged.'
+],'https://pubmed.ncbi.nlm.nih.gov/15580276/','Schematic nucleosome breathing. Geometry and timing are illustrative; no binding probability or transcription rate is calculated.');
+processes['chromatin-folding']=define('Chromatin organization',['chromatin'],20,[
+ 'DNA links a chain of nucleosomes.',
+ 'The nucleosome chain folds into a more compact arrangement.',
+ 'Packing brings distant portions of the same chain closer.',
+ 'The chain opens again; the DNA sequence has not changed.'
+],'https://www.genome.gov/genetics-glossary/Chromatin','One illustrative folding path, not a universal regular fiber or a measured trajectory. Compaction and accessibility depend on biological context.');
+for(const [id,kind,model] of [['mitosis','mitosis','mitotic-cell'],['meiosis','meiosis','meiotic-cell']]){
+ processes[id]=define(kind==='mitosis'?'Mitosis':'Meiosis',[model],kind==='mitosis'?42:64,divisionStages[kind].map(s=>s.text),'https://www.ncbi.nlm.nih.gov/books/NBK430708/','Teaching model with 2n = 4, not a species-specific karyotype. One S phase; mitosis separates sisters, whereas meiosis separates homologs then sisters. The displayed cell is a representative stage within the containing organism.');
+}
 for(const c of courseContent){const lab=labs[c.sim];processes[`topic-${c.topic}`]=define(lab.name||lab.beats[0],['lesson-lab'],lab.seconds||(c.sim==='replication'?22:c.sim==='translation'?24:18),lab.beats,'https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf',lab.note);}
 export const processesFor=id=>Object.entries(processes).filter(([,p])=>p.models.includes(id)).map(([id,p])=>({id,...p}));
 // Match explanatory beats to the rig's binding, reaction and product events.
-export const phaseStarts={catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
+export const phaseStarts={'dna-breathing':[0,.15,.48,.7],'chromatin-folding':[0,.12,.55,.75],catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
+for(const kind of ['mitosis','meiosis'])phaseStarts[kind]=divisionStages[kind].map(s=>s.at);
 for(const c of courseContent)if(labs[c.sim].stages)phaseStarts[`topic-${c.topic}`]=labs[c.sim].stages.map(s=>s.at);
 export function phaseAt(id,t){const stops=phaseStarts[id]||[0,.25,.5,.75];return Math.max(0,stops.findLastIndex(start=>t>=start));}
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
@@ -119,6 +136,9 @@ export function diffusionPositions(t) {
 export function sampleProcess(id,progress,environment='favor-a',options={}) {
  const t=clamp(progress),process=processes[id];if(!process)return null;
  const phase=phaseAt(id,t),state={id,t,phase,caption:process.steps[phase],time:`${Math.round(t*process.seconds)} / ${process.seconds} s`,metrics:[]};
+ if(id==='mitosis'||id==='meiosis')return {...state,...divisionState(id,t,options.condition||'normal'),id};
+ if(id==='dna-breathing'){state.exposure=interval(t,.15,.48)*(1-interval(t,.7,1));state.metrics=[['DNA sequence','Unchanged'],['Exposure',state.exposure>.5?'Ends loosened':'Mostly wrapped']];return state;}
+ if(id==='chromatin-folding'){state.compaction=interval(t,.12,.55)*(1-interval(t,.75,1));state.metrics=[['Nucleosomes','7 represented'],['Organization',state.compaction>.5?'Compact':'Open']];return state;}
  if(id.startsWith('topic-')){const c=courseContent.find(c=>c.topic===id.slice(6));return {...state,...sampleLab(c.sim,t,options.condition||'normal'),id};}
  if(id==='selection') {
   const exact=t*12,generation=Math.min(12,Math.floor(exact)),entry=selectionCache[environment][generation];

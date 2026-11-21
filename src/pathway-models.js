@@ -1,3 +1,5 @@
+import {makeDivisionModel} from './division-model.js';
+import {makeNucleosome,makeChromatin} from './chromatin-model.js';
 import {makePeptide} from './molecular-reactions.js';
 import * as THREE from 'three';
 import {ball,rod,path,organic,rim,mesh,surface,group,tag} from './surfaces.js';
@@ -6,15 +8,6 @@ import {rabbit,tree,groundCover} from './organisms.js';
 import {interval} from './processes.js';
 import {woodlandFloor,epithelialMatrix} from './world-detail.js';
 
-function chromatin(parent,scale=1) {
- const g=group(parent,[0,0,0],scale),points=[];
- for(let n=0;n<7;n++){
-  const center=[(n-3)*.74,Math.sin(n*.8)*.35,Math.cos(n*.8)*.3];
-  organic(g,center,[.24,.22,.23],n%2?'#af8ba8':'#c1a0b6',{roughness:.08});
-  for(let i=0;i<34;i++){const a=i/33*Math.PI*3.5;points.push([center[0]+Math.cos(a)*.31,center[1]+Math.sin(a)*.29,center[2]+(i/33-.5)*.35]);}
- }
- tag(path(g,points,.025,'#d2b47e','atom'),'dna','DNA','APBIO-6.1-01');return g;
-}
 function chlorophyll(parent,scale=1){
  const g=group(parent,[0,0,0],scale),ring=[];
  for(let i=0;i<16;i++){const a=i/16*Math.PI*2,p=[Math.cos(a),Math.sin(a),.025*Math.sin(i)];ring.push(p);ball(g,p,i%4===0?.11:.085,i%4===0?'#83a7ca':'#7b9d88','atom');}
@@ -38,7 +31,10 @@ export const pathwayBuilders={
  'chloroplast-atp-synthase'(){this.makeChloroplastATP();},
  'mitochondrial-dna'(){this.makeCircularDNA();},
  'chloroplast-dna'(){this.makeCircularDNA();},
- chromatin(){chromatin(this.root);},
+ nucleosome:makeNucleosome,
+ chromatin:makeChromatin,
+ 'mitotic-cell'(){makeDivisionModel.call(this,'mitosis');},
+ 'meiotic-cell'(){makeDivisionModel.call(this,'meiosis');},
  chromosome(){
   for(let k=0;k<12;k++){
    const points=Array.from({length:65},(_,i)=>{const a=i*.22+k*2.4;return [Math.cos(a)*(.55+k*.075),Math.sin(a*.73)*1.8,Math.sin(a)*(.55+k*.065)];});

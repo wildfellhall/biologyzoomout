@@ -3,6 +3,8 @@ export const pathSources={
  crambin:'https://pmc.ncbi.nlm.nih.gov/articles/PMC5536114/',
  cell:'https://openstax.org/books/biology-2e/pages/4-3-eukaryotic-cells',
  dna:'https://www.genome.gov/genetics-glossary/Chromatin',
+ nucleosome:'https://www.genome.gov/genetics-glossary/Nucleosome',
+ division:'https://www.ncbi.nlm.nih.gov/books/NBK430708/',
  lipid:'https://openstax.org/books/biology-2e/pages/5-1-components-and-structure',
  sugar:'https://openstax.org/books/biology-2e/pages/3-2-carbohydrates',
  protein:'https://openstax.org/books/biology-2e/pages/15-5-ribosomes-and-protein-synthesis',
@@ -16,7 +18,10 @@ export const pathwayInfo={
  tonoplast:info('Tonoplast','A selectively permeable membrane encloses the central vacuole.','APBIO-2.1-08',['phospholipid']),
  tree:info('Woodland tree','One tree is a member of a population of the same species.','APBIO-8.3-01',[],'levels','Representative woodland tree; species-specific anatomy is not modeled.'),
  'tree-population':info('Tree population','Trees of one species form one population within the woodland community.','APBIO-8.3-01',['tree'],'levels'),
- chromatin:info('Chromatin','DNA winds around histone proteins to form nucleosomes within chromatin.','APBIO-6.1-01',['dna'],'dna'),
+ nucleosome:info('Nucleosome','DNA wraps around a core of histone proteins. Local unwrapping can expose DNA without changing its sequence.','APBIO-6.1-01',['dna'],'nucleosome','Schematic histone octamer and approximately 1.65 DNA turns. Crossbars sample the duplex; they do not count base pairs. Breathing is an illustrative motion, not measured dynamics.'),
+ 'mitotic-cell':info('Dividing epithelial cell','One DNA replication precedes sister separation and division into two cells with the same chromosome complement.','APBIO-4.5-01',['nucleus'],'division','A generic animal cell in a renewing epithelium. The teaching model uses 2n = 4, not the chromosome count of a rabbit. Times and dimensions are illustrative.'),
+ 'meiotic-cell':info('Meiotic germ cell','One replication precedes two divisions: homologs separate first, then sisters.','APBIO-5.1-01',['nucleus'],'division','A representative male germ-cell context. Four products are shown with 2n = 4 initially; this is not the chromosome count or detailed gamete maturation of a rabbit.'),
+ chromatin:info('Chromatin','DNA winds around histone proteins to form nucleosomes within chromatin.','APBIO-6.1-01',['nucleosome'],'dna','Nucleosome-chain folding is schematic. Chromatin does not have a single universal regular 30-nm fiber geometry.'),
  chromosome:info('Interphase chromosome','One chromosome occupies a region of the nucleus as folded chromatin.','APBIO-6.1-01',['chromatin'],'dna','A chromosome territory in interphase, not a condensed mitotic X. The territory has no enclosing membrane.'),
  phospholipid:info('Phospholipid','A polar head group and two nonpolar fatty-acid tails make an amphipathic membrane lipid.','APBIO-1.5-03',[],'lipid','Schematic glycerophospholipid with one bent unsaturated tail. Groups represent many atoms; this is not a published conformer.'),
  'starch-granule':info('Starch granule','Amylose and branched amylopectin are stored together in a starch granule.','APBIO-1.4-01',['amylose'],'sugar','Representative transient starch granule in a leaf chloroplast; storage starch also occurs in other plastids.'),
@@ -39,6 +44,7 @@ const catalog={
  'free-ribosome':step('free-ribosome','Free ribosome','~25 nm',3),tonoplast:step('tonoplast','Tonoplast','~5–10 nm thick',2),
  tree:step('tree','Tree','~10 m',5),'tree-population':step('tree-population','Tree population','~100 m',6),
  molecules:step('molecules','Molecule','~1 nm',0),
+ nucleosome:step('nucleosome','Nucleosome','~11 nm across',1),'mitotic-cell':step('mitotic-cell','Dividing cell','~10–30 μm',4),'meiotic-cell':step('meiotic-cell','Germ cell','~10–30 μm',4),
  dna:step('dna','DNA','~2 nm across',1),chromatin:step('chromatin','Chromatin','~10–100 nm',1),chromosome:step('chromosome','Chromosome','~1–5 μm region',1),nucleus:step('nucleus','Nucleus','~5 μm',4),
  phospholipid:step('phospholipid','Phospholipid','~2 nm',0),membrane:step('membrane','Bilayer','~5–10 nm thick',2),
  amylose:step('amylose','Amylose','~10 nm segment',1),'starch-granule':step('starch-granule','Starch granule','~1 μm',3),
@@ -54,9 +60,11 @@ const catalog={
  'chloroplast-atp-synthase':step('chloroplast-atp-synthase','ATP synthase','~10 nm',1),nucleolus:step('nucleolus','Nucleolus','~1 μm',3),
 };
 export const pathways={
+ renewal:{name:'Cell renewal',molecule:'adenine',organisms:['animal'],models:['molecules','dna','nucleosome','chromatin','chromosome','nucleus','mitotic-cell'],suffix:'renewal'},
+ germline:{name:'Germ line & meiosis',molecule:'adenine',organisms:['animal'],models:['molecules','dna','nucleosome','chromatin','chromosome','nucleus','meiotic-cell'],suffix:'germline'},
  woodland:{name:'Woodland trees',organisms:['plant'],models:['tree','tree-population'],suffix:'woodland'},
  starch:{name:'Starch',molecule:'glucose',organisms:['plant'],models:['molecules','amylose','starch-granule','chloroplast']},
- dna:{name:'DNA',molecule:'adenine',organisms:['plant','animal'],models:['molecules','dna','chromatin','chromosome','nucleus']},
+ dna:{name:'DNA',molecule:'adenine',organisms:['plant','animal'],models:['molecules','dna','nucleosome','chromatin','chromosome','nucleus']},
  membrane:{name:'Membrane lipids',molecule:'glycerophosphocholine',organisms:['plant','animal'],models:['molecules','phospholipid','membrane']},
  translation:{name:'ER protein synthesis',molecule:'glycine',organisms:['plant','animal'],models:['molecules','polypeptide','ribosome','rough-er']},
  'free-translation':{name:'Cytosolic protein synthesis',molecule:'glycine',organisms:['plant','animal'],models:['molecules','polypeptide','free-ribosome','cytosol']},
@@ -74,6 +82,8 @@ export const pathways={
 };
 
 const suffixes={
+ renewal:['epithelium','rabbit','rabbit-population','community','ecosystem','biosphere'],
+ germline:['rabbit','rabbit-population','community','ecosystem','biosphere'],
  woodland:['community','ecosystem','biosphere'],
  plant:['plant-cell','leaf','plant','population','community','ecosystem','biosphere'],
  animal:['animal-cell','epithelium','rabbit','rabbit-population','community','ecosystem','biosphere'],
@@ -83,6 +93,12 @@ const relations=new Map();
 function edge(from,to,relation,reason,source='cell') {relations.set(`${from}>${to}`,{from,to,relation,reason,source:pathSources[source]});}
 edge('molecules','amylose','building block','Glucose-derived residues form amylose. The stored free-glucose conformer is the beta anomer; the polymer contains alpha-linked residues.','sugar');
 edge('molecules','dna','component','Adenine is one of the nitrogenous bases in DNA. This is a component relationship, not a reaction animation.','dna');
+edge('dna','nucleosome','wrapped around histones in','The selected DNA segment is packaged around a histone core.','nucleosome');
+edge('nucleosome','chromatin','repeating subunit of','Nucleosomes and linker DNA form a chromatin chain.','nucleosome');
+edge('nucleus','mitotic-cell','compartment of','This route follows the nucleus of a renewing epithelial cell before nuclear-envelope breakdown.','division');
+edge('nucleus','meiotic-cell','compartment of','This route follows the nucleus of a diploid germ cell before meiotic nuclear-envelope breakdown.','division');
+edge('mitotic-cell','epithelium','cell of','Divisions of appropriate epithelial cells contribute to tissue renewal. The timing animation and scale change are separate.','cell');
+edge('meiotic-cell','rabbit','cell within','This route locates a representative male germ cell within the animal reproductive system; intervening tissue and organ scales are omitted.','division');
 edge('dna','chromatin','packaged in','DNA wraps around histones within chromatin.','dna');
 edge('chromatin','chromosome','organized into','Chromatin makes up an interphase chromosome.','dna');
 edge('chromosome','nucleus','contained in','Interphase chromosomes occupy territories inside the nucleus.','dna');
@@ -136,7 +152,7 @@ edge('ecosystem','biosphere','part of','This ecosystem is part of the global bio
 
 const specialParents={nucleolus:['nucleus'], 'nuclear-pore':['nucleus'],lysosome:[],centrosome:[],vacuole:[],'cell-wall':[],golgi:[],'smooth-er':[],peroxisome:[],vesicle:[],cytoskeleton:[]};
 export function pathForMolecule(molecule,current='starch') {
- if(molecule.id==='water')return 'water';if(molecule.id==='atp')return current==='chloroplast-atp'?'chloroplast-atp':'respiration';if(molecule.id==='adenine')return ['rna','nucleolar-rna','mitochondrial-dna','chloroplast-dna'].includes(current)?current:'dna';if(molecule.id==='ribose')return current==='nucleolar-rna'?'nucleolar-rna':'rna';
+ if(molecule.id==='water')return 'water';if(molecule.id==='atp')return current==='chloroplast-atp'?'chloroplast-atp':'respiration';if(molecule.id==='adenine')return ['renewal','germline','rna','nucleolar-rna','mitochondrial-dna','chloroplast-dna'].includes(current)?current:'dna';if(molecule.id==='ribose')return current==='nucleolar-rna'?'nucleolar-rna':'rna';
  if(molecule.family==='amino-acids')return ['enzymes','free-translation'].includes(current)?current:'translation';if(molecule.family==='lipids')return current==='tonoplast'?'tonoplast':'membrane';return 'starch';
 }
 export function supportsMolecule(pathId,molecule){return !!molecule&&pathForMolecule(molecule,pathId)===pathId;}
@@ -168,7 +184,7 @@ export function routeForModel(model,organism='plant',preferred='starch',containe
  if(['animal-cell','epithelium','rabbit','rabbit-population','lysosome','centrosome'].includes(model))organism='animal';
  if(['plant-cell','leaf','plant','population','chloroplast','thylakoid','photosystem','chlorophyll','vacuole','cell-wall','seed','protein'].includes(model))organism='plant';
  const preferredRoutes={dna:'dna',nucleus:'dna',chromatin:'dna',chromosome:'dna',membrane:'membrane',phospholipid:'membrane',ribosome:'translation','rough-er':'translation',rrna:'rna',mitochondrion:'respiration','atp-synthase':'respiration',chloroplast:'photosynthesis',thylakoid:'photosynthesis',chlorophyll:'photosynthesis',photosystem:'photosynthesis',amylose:'starch','starch-granule':'starch',protein:'seed-protein',seed:'seed-protein',enzyme:'enzymes',cytosol:'enzymes'};
- const extra={polypeptide:'translation','free-ribosome':'free-translation',tonoplast:'tonoplast',tree:'woodland','tree-population':'woodland','chloroplast-atp-synthase':'chloroplast-atp','mitochondrial-dna':'mitochondrial-dna','chloroplast-dna':'chloroplast-dna'};
+ const extra={nucleosome:'dna','mitotic-cell':'renewal','meiotic-cell':'germline',polypeptide:'translation','free-ribosome':'free-translation',tonoplast:'tonoplast',tree:'woodland','tree-population':'woodland','chloroplast-atp-synthase':'chloroplast-atp','mitochondrial-dna':'mitochondrial-dna','chloroplast-dna':'chloroplast-dna'};
  const id=extra[model]||preferredRoutes[model]||(model in specialParents?`inspect:${model}`:'dna');
  const route=buildPath(id,organism);
  if(!route.steps.some(s=>s.id===model))throw new Error(`No zoom context for ${model}`);

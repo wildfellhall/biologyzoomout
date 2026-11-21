@@ -29,7 +29,7 @@ test('Every path has justified adjacent relationships, no cycles, and a coherent
  }
 });
 test('Nuclear DNA never zooms into a membrane; lipid components never zoom into DNA',()=>{
- const dna=ids(buildPath('dna'));assert.deepEqual(dna.slice(0,6),['molecules','dna','chromatin','chromosome','nucleus','plant-cell']);assert.ok(!dna.includes('membrane'));
+ const dna=ids(buildPath('dna'));assert.deepEqual(dna.slice(0,7),['molecules','dna','nucleosome','chromatin','chromosome','nucleus','plant-cell']);assert.ok(!dna.includes('membrane'));
  assert.deepEqual(ids(buildPath('membrane')).slice(0,4),['molecules','phospholipid','membrane','plant-cell']);
  assert.ok(!ids(buildPath('membrane')).includes('dna'));
 });

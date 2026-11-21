@@ -1,3 +1,4 @@
+import {conceptByTopic} from '../practice/concepts.js';
 import {courseContent} from './content.js';
 import {labs,sampleLab} from './labs.js';
 import {esc} from '../node-detail.js';
@@ -5,7 +6,7 @@ import {divisionDiagram} from '../division-diagram.js';
 const curves=new Map();
 function curve(kind,condition){const key=`${kind}:${condition}`;if(!curves.has(key))curves.set(key,Array.from({length:41},(_,i)=>sampleLab(kind,i/40,condition)));return curves.get(key);}
 const idFor=topic=>`topic-${topic.replace('.','-')}`;
-export const courseActivity=Object.fromEntries(courseContent.map((c,i)=>{const lab=labs[c.sim];const choices=[lab.measure,'The chosen experimental condition','The starting setup held fixed between comparable runs'];const offset=i%3,answers=[...choices.slice(offset),...choices.slice(0,offset)];return [idFor(c.topic),{...lab,check:{prompt:'Which quantity is the response variable in this model comparison?',answers,correct:answers.indexOf(lab.measure),feedback:`Compare ${lab.measure.toLowerCase()} across the specified conditions. The chosen treatment is the independent variable; fixed starting conditions are controls.`}}];}));
+export const courseActivity=Object.fromEntries(courseContent.map(c=>{const q=conceptByTopic[c.topic];return [idFor(c.topic),{...labs[c.sim],check:{id:q.id,prompt:q.prompt,answers:q.options.map(o=>o.text),correct:q.options.findIndex(o=>o.id===q.correct),feedbacks:q.options.map(o=>o.feedback)}}];}));
 export function courseResult(id,s){return s.metrics.map(([name,value])=>`${name}: ${value}`).join('; ');}
 const text=(x,y,value,anchor='start')=>`<text x="${x}" y="${y}" text-anchor="${anchor}">${esc(value)}</text>`;
 export function courseDiagram(topic,s){

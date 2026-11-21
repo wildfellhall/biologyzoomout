@@ -18,7 +18,7 @@ export function loadProgress(storage){
    for(const step of checkpoints(lesson)){
     const answer=saved.answers?.[step.id];if(!answer||typeof answer!=='object')continue;
     if(step.type==='question'&&!step.options.some(o=>o.id===answer.choice))continue;
-    entry.answers[step.id]={choice:answer.choice,text:typeof answer.text==='string'?answer.text.slice(0,2000):'',rating:['ready','again'].includes(answer.rating)?answer.rating:null,firstCorrect:answer.firstCorrect===true,attempts:Math.max(0,Math.min(10000,Number.isInteger(answer.attempts)?answer.attempts:0))};
+    entry.answers[step.id]={snapshot:answer.snapshot||null,history:Array.isArray(answer.history)?answer.history:[],choice:answer.choice,text:typeof answer.text==='string'?answer.text.slice(0,2000):'',rating:['ready','again'].includes(answer.rating)?answer.rating:null,firstCorrect:answer.firstCorrect===true,attempts:Math.max(0,Math.min(10000,Number.isInteger(answer.attempts)?answer.attempts:0))};
    }
    clean.lessons[lesson.id]=entry;
    for(const step of checkpoints(lesson)){
@@ -42,7 +42,7 @@ export function answerStep(progress,id,stepId,response){
  const text=String(response.text||'').slice(0,2000);
  const answer=step.type==='question'?{choice:response.choice,correct:response.choice===step.correct}:{text,rating:text.trim().length>=12&&['ready','again'].includes(response.rating)?response.rating:null};
  const assessed=step.type==='question'||!!answer.rating,correct=step.type==='question'?answer.correct:answer.rating==='ready';
- next.lessons[id].answers[stepId]={...previous,...answer,firstCorrect:previous?.attempts?previous.firstCorrect:correct,attempts:(previous?.attempts||0)+(assessed?1:0)};
+ next.lessons[id].answers[stepId]={...previous,...answer,snapshot:step.type==='question'?{version:step.version||1,prompt:step.prompt,options:structuredClone(step.options),correct:step.correct}:null,history:[...(previous?.history||[]),...(assessed?[{at:Date.now(),...answer,version:step.version||1,snapshot:step.type==='question'?{prompt:step.prompt,options:structuredClone(step.options),correct:step.correct}:null}]:[])],firstCorrect:previous?.attempts?previous.firstCorrect:correct,attempts:(previous?.attempts||0)+(assessed?1:0)};
  return next;
 }
 export function isAnswered(step,answer){return step.type==='question'?!!answer?.choice:step.type==='recall'?!!answer?.rating&&(answer.text?.trim().length||0)>=12:true;}

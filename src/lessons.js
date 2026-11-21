@@ -1,3 +1,4 @@
+import {focusedOptions} from './course/focused-options.js';
 // Original lesson prompts. These reference the canonical ontology without changing it.
 import {courseLessons,framework,focusedTopicMap} from './course/lessons.js';
 export {framework,focusedTopicMap};
@@ -120,6 +121,13 @@ for(const lesson of lessons){
  for(const step of lesson.steps)if(step.type==='explain'){
   if(!step.view.process)step.view={...observation.view};
   step.cues??=observation.cues;
+ }
+}
+for(const lesson of lessons.filter(l=>!l.topic)){
+ for(const [i,step] of lesson.steps.filter(s=>s.type==='question').entries()){
+  const [text,feedback]=focusedOptions[lesson.id][i];step.version=2;
+  step.options.push({id:'alternative-4',text,feedback});
+  if(i===0)step.title='Concept check';
  }
 }
 export const lessonById=id=>lessons.find(lesson=>lesson.id===id);

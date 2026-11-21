@@ -101,6 +101,16 @@ try {
   await page.locator('#lesson-search').fill('replication');await page.locator('[data-lesson="topic-6-2"]').click();
   assert.equal(await page.locator('#lesson-content').isVisible(),true);assert.equal(await page.locator('#lesson-live').isHidden(),true);
   check('The lesson dashboard, unit deep links, search, and focused reading view work offline');
+  await open(page,'#practice&type=mcq&item=ap-3-1');await page.locator('#practice-prompt').waitFor();
+  assert.equal(await page.locator('.practice-mcq-stimulus table').count(),1);
+  await page.locator('input[value="o0"]').check();await page.locator('#practice-submit').click();assert.match(await page.locator('.practice-feedback').innerText(),/Correct/);
+  await open(page,'#practice&type=frq&item=frq-unit-5');await page.locator('[data-frq-part="0"]').fill('Eight DNA molecules after replication.');await page.reload();await page.locator('[data-frq-part="0"]').waitFor();assert.match(await page.locator('[data-frq-part="0"]').inputValue(),/Eight/);
+  await page.locator('#practice-submit').click();assert.equal(await page.locator('#frq-criteria-title').isVisible(),true);
+  for(const [path,model] of [['dna','nucleosome'],['dna','chromatin'],['renewal','mitotic-cell'],['germline','meiotic-cell']]){
+    await open(page,`#path=${path}&organism=animal&at=${model}`);assert.equal(await page.locator('#scene').getAttribute('data-model'),model);
+    await page.locator('#process-range').evaluate(el=>{el.value='1';el.dispatchEvent(new Event('input',{bubbles:true}));});await frame(page);assert.equal(await page.locator('#process-panel').isVisible(),true);
+  }
+  check('Stimulus MCQs, FRQ drafts and rubrics, chromatin and division pathways work offline');
   for (const model of ['animal-cell', 'ecosystem', 'biosphere']) {
     await open(page, `#path=dna&organism=animal&at=${model}`);
     assert.equal(await page.locator('#scene').getAttribute('data-model'), model);
