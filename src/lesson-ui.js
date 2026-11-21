@@ -23,7 +23,6 @@ export function createLessonUI(api){
  const answer=()=>active==='review'?reviewAnswers[key()]:progress.lessons[active]?.answers[step()?.id];
  const canPlay=()=>active!=='review'&&['explain','observe','experiment'].includes(step()?.type)&&!!step()?.view.process;
  const changed=()=>api.onChange?.();
- const resize=new ResizeObserver(()=>{if(active)document.body.style.setProperty('--lesson-height',`${panel.offsetHeight+28}px`);});resize.observe(panel);
  const savePosition=()=>{if(active&&active!=='review'){progress=beginLesson(progress,active,stepIndex);persist();}};
 
  function openCatalog(){savePosition();api.openDashboard();}
