@@ -1,3 +1,4 @@
+import {createExploreStart} from './explore-start.js';
 import './practice/styles.css';
 import {createPracticeUI} from './practice/ui.js';
 import './styles.css';
@@ -37,7 +38,7 @@ const fetchJSON = async url => {
 };
 const families = [['carbohydrates','Carbohydrates'],['amino-acids','Amino acids'],['lipids','Lipids'],['nucleotides','Nucleotides'],['water','Water']];
 const state = {
-  home:false,dashboard:false,practice:false,
+  home:false,dashboard:false,practice:false,choosing:false,
   position:0, target:0, stage:0, molecule:'glucose', pathId:'starch', organism:'plant',
   drawer:false, scope:'stage', query:'', unit:'all', selectedNode:null, history:[],
   paused:matchMedia('(prefers-reduced-motion: reduce)').matches, labels:false, style:'ball', reviewed:new Set(),
@@ -64,7 +65,7 @@ try {
       <div class="model-heading">
         <button id="structure-back" hidden></button>
         <select id="model-select" aria-label="Select 3D model"></select>
-        <h1 id="model-name" hidden></h1>
+        <h1 id="model-name" tabindex="-1" hidden></h1>
         <div class="model-meta"><span id="model-formula"></span><span id="model-size"></span></div>
         <div class="structure-actions"><select id="part-select" aria-label="Inspect a structure in 3D" hidden></select><button id="field-note-toggle" aria-expanded="false" aria-controls="field-note">Field notes <span>↗</span></button></div>
       </div>
@@ -113,7 +114,7 @@ try {
     <dialog id="node-dialog" aria-labelledby="node-title"><div class="dialog-toolbar"><button id="node-back">← Back</button><button class="close-dialog icon-button" aria-label="Close learning node">${icon('close')}</button></div><div id="node-detail"></div></dialog>
     <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title"><div class="dialog-toolbar"><h2 id="info-title">Model information</h2><button class="close-dialog icon-button" aria-label="Close model information">${icon('close')}</button></div><div class="info-body"><details class="settings" open><summary>View settings</summary><div class="view-controls" aria-label="3D controls"><button id="pause-btn" aria-label="Pause rotation">${icon('pause')}<span>Rotation</span></button><button id="labels-btn" aria-label="Show model labels" aria-pressed="false">${icon('labels')}<span>Labels</span></button><button id="reset-btn" aria-label="Reset view">${icon('reset')}<span>Reset view</span></button></div><label class="autoplay-setting"><input id="autoplay-setting" type="checkbox"> Play processes automatically</label><select id="process-select" aria-label="Choose an animation" hidden></select><div id="representation-controls"><button data-style="ball" aria-pressed="true">Ball & stick</button><button data-style="space" aria-pressed="false">Space filling</button></div></details><div id="model-information"></div><details><summary>Controls</summary><dl class="shortcuts"><dt>Scroll / pinch</dt><dd>Change scale</dd><dt>Drag</dt><dd>Rotate</dd><dt>← / →</dt><dd>Previous / next scale</dd><dt>Space</dt><dd>Pause / resume</dd><dt>/</dt><dd>Search nodes</dd><dt>Esc</dt><dd>Close</dd></dl></details><details><summary>Framework & sources</summary><p>AP Biology, 2026–27. All 234 original nodes and 496 learning relationships are available. Zoom paths follow biological components, compartments, and ecological membership. They are separate from the ontology’s prerequisite relationships.</p><ul class="source-list">${ontology.sources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)} ↗</a><small>${esc(source.edition)}</small></li>`).join('')}</ul><p>Each adjacent zoom step has an explicit biological relationship. Building-block and catalytic-binding steps differ from literal containment; the relationship notes below identify these cases. Models use representative dimensions and are not a calibrated reconstruction of one specimen.</p><p>Small molecules use published PubChem coordinates; crambin uses RCSB PDB 1CRN. Cell and organism scenes are procedural cutaways. Earth uses a satellite-derived texture. Colors, abundance, and biochemical playback times are illustrative; animation models and assumptions are documented above.</p><p>Habitat materials use local Poly Haven photographic maps: <a href="https://polyhaven.com/a/bark_brown_02" target="_blank" rel="noopener">Bark Brown 02</a> and <a href="https://polyhaven.com/a/forrest_ground_01" target="_blank" rel="noopener">Forest Ground 01</a> by Rob Tuytel, <a href="https://polyhaven.com/a/forest_ground_04" target="_blank" rel="noopener">Forest Ground 04</a> by Rob Tuytel and Rico Cilliers, and <a href="https://polyhaven.com/a/forest_slope" target="_blank" rel="noopener">Forest Slope</a> HDR lighting by Andreas Mischok. All are <a href="https://polyhaven.com/license" target="_blank" rel="noopener">CC0</a>. Organism shapes remain procedural illustrations, not scanned specimens. <a href="/textures/natural/sources.json" target="_blank" rel="noopener">Asset records ↗</a></p><a href="/data/ontology.json" download="ap-biology-ontology.json">Download ontology ↓</a></details><details><summary>Source qualifications</summary>${ontology.source_issues.map(issue=>`<p><b>${esc(issue.requirement)}</b> ${esc(issue.issue)} ${esc(issue.resolution)}</p>`).join('')}<p>Six classroom and laboratory implementation conditions remain unverified. Reviewed markers are local reading records, not mastery scores.</p></details></div></dialog>`;
 
-  let scene,lessonUI,homeUI,dashboardUI,practiceUI,lessonNavigation=false;
+  let scene,lessonUI,homeUI,dashboardUI,practiceUI,startUI,lessonNavigation=false;
   scene = new BiologyScene($('#scene'), {
     onSelect: selection => {
       if (selection.feature) openFieldNote(selection.feature);
@@ -272,7 +273,7 @@ try {
     $('#gesture-hint').classList.add('dismissed');clearTimeout(hashTimer);hashTimer=setTimeout(updateHash,180);
   }
   function updateHash(){
-    if(state.home||state.dashboard||state.practice)return;
+    if(state.home||state.dashboard||state.practice||state.choosing)return;
     const index=Math.round(state.target),parameters=new URLSearchParams({path:route.id,organism:state.organism,at:route.steps[index].key});
     if(route.steps[0].id==='molecules')parameters.set('molecule',state.molecule);
     if(Math.abs(state.target-index)>.001)parameters.set('zoom',state.target.toFixed(3));
@@ -283,6 +284,8 @@ try {
   }
   function readHash(){
     clearTimeout(hashTimer);const parameters=new URLSearchParams(location.hash.slice(1));state.focusStack=[];
+    if(parameters.has('explore')){showStart(Object.fromEntries(parameters));return;}
+    leaveStart();
     if(parameters.has('practice')){showPractice(Object.fromEntries(parameters));return;}
     leavePractice();
     if(!location.hash||location.hash==='#home'){showHome();return;}
@@ -420,7 +423,7 @@ try {
   $('#feature-select').onchange=event=>{state.noteFeature=event.target.value||null;renderFieldNote();};
   for(const button of document.querySelectorAll('[data-note-tab]'))button.onclick=()=>{state.noteTab=button.dataset.noteTab;renderFieldNote();};
   function showHome(){
-    leavePractice();
+    leaveStart();leavePractice();
     const returning=scene.definitions.length>0;
     leaveDashboard();state.home=true;clearTimeout(hashTimer);
     lessonUI?.exit({update:false});
@@ -445,7 +448,7 @@ try {
     $('#learn-toggle').removeAttribute('aria-current');$('#learn-toggle').classList.remove('active');scene.active=true;scene.resize();
   }
   function showDashboard(params={}){
-    leavePractice();leaveHome();state.dashboard=true;clearTimeout(hashTimer);
+    leaveStart();leavePractice();leaveHome();state.dashboard=true;clearTimeout(hashTimer);
     lessonUI.exit({update:false});
     for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
     closeFieldNote();if(state.drawer)toggleBrowser(false);
@@ -459,13 +462,28 @@ try {
     state.practice=false;practiceUI.hide();document.body.classList.remove('practice-mode','dashboard-mode');scene.active=true;scene.resize();
   }
   function showPractice(params){
-    leaveHome();leaveDashboard();state.practice=true;clearTimeout(hashTimer);
+    leaveStart();leaveHome();leaveDashboard();state.practice=true;clearTimeout(hashTimer);
     lessonUI.exit({update:false});
     for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
     closeFieldNote();if(state.drawer)toggleBrowser(false);
     scene.playProcess(false);scene.active=false;scene.clearHover();
     document.body.classList.add('practice-mode','dashboard-mode');
     practiceUI.show(params);
+  }
+  function leaveStart(){
+    if(!state.choosing)return;
+    state.choosing=false;startUI.hide();document.body.classList.remove('starting-mode','dashboard-mode');scene.active=true;scene.resize();
+  }
+  function showStart(params){
+    leaveHome();leaveDashboard();leavePractice();state.choosing=true;clearTimeout(hashTimer);
+    lessonUI.exit({update:false});
+    for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
+    closeFieldNote();if(state.drawer)toggleBrowser(false);
+    scene.playProcess(false);scene.active=false;scene.clearHover();$('#picked-atom').hidden=true;
+    document.body.classList.add('starting-mode','dashboard-mode');startUI.show(params);
+  }
+  function openStart(){
+    history.pushState(null,'',`#explore&context=${state.organism}`);readHash();
   }
   function openDashboard(){
     if(!state.dashboard)history.pushState(null,'','#lessons');
@@ -529,7 +547,7 @@ try {
   }
   $('#node-dialog').addEventListener('close',()=>{state.selectedNode=null;state.history=[];updateHash();});
   document.addEventListener('keydown',event=>{
-    if(state.home||state.dashboard||state.practice||$('dialog[open]'))return;
+    if(state.home||state.dashboard||state.practice||state.choosing||$('dialog[open]'))return;
     if(event.key==='Escape'&&state.noteOpen){closeFieldNote();return;}
     if(event.key==='Escape'&&state.drawer){toggleBrowser(false);return;}
     if(event.key==='Escape'&&state.focusStack.length){leaveStructure();return;}
@@ -554,7 +572,7 @@ try {
   $('.top-actions').insertAdjacentHTML('afterbegin','<button id="learn-toggle" aria-controls="lesson-dashboard">Lessons</button><button id="dashboard-explore">Zoom In ↗</button>');
   lessonUI=createLessonUI({scene,openDashboard,
     navigate(view){
-      leavePractice();leaveDashboard();leaveHome({push:true});
+      leaveStart();leavePractice();leaveDashboard();leaveHome({push:true});
       lessonNavigation=true;
       try{setRoute(buildPath(view.path,view.organism),{model:view.model});}finally{lessonNavigation=false;}
       if(view.lab){
@@ -593,13 +611,14 @@ try {
   });
   practiceUI=createPracticeUI({onRoute(params){const p=new URLSearchParams();for(const [k,v]of Object.entries(params))if(v)p.set(k,v);history.pushState(null,'',`#practice&${p}`);readHash();}});
   $('#learn-toggle').onclick=openDashboard;
-  $('#dashboard-explore').onclick=()=>{history.pushState(null,'','#path=dna&organism=plant&at=dna');readHash();};
+  startUI=createExploreStart({molecules,
+    onRoute(params){const p=new URLSearchParams(params);history.replaceState(null,'',`#explore&${p}`);},
+    onStart({route,model,molecule}){const p=new URLSearchParams({path:route.id,organism:route.organism,at:model});if(molecule)p.set('molecule',molecule);history.pushState(null,'',`#${p}`);readHash();$(model==='molecules'?'#model-select':'#model-name').focus({preventScroll:true});},
+  });
+  $('#dashboard-explore').onclick=openStart;
   homeUI=createHome({
     onLessons:openDashboard,
-    onExplore:()=>{
-      history.pushState(null,'','#path=dna&organism=plant&at=dna');readHash();
-      $('#home').focus({preventScroll:true});
-    },
+    onExplore:openStart,
   });
   mountInstallUI();
   updatePause();readHash();

@@ -38,7 +38,7 @@ try{
  await p.screenshot({path:'test-results/dashboard/progress.png'});
  await p.locator('#start-review').click();assert.equal(await p.locator('#lesson-feedback').isHidden(),true);await p.locator('#lesson-catalog-button').click();
  check('Lessons show one activity at a time; keyboard tabs, experiments, answers, resume, completion and reviews survive dashboard navigation');
- await p.locator('#dashboard-explore').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'dna');assert.equal(await p.locator('#learn-toggle').getAttribute('aria-current'),null);await p.locator('#learn-toggle').click();await p.goBack();await p.locator('#viewer').waitFor();
+ await p.locator('#dashboard-explore').click();await p.locator('#explore-start').waitFor();assert.equal(await p.locator('#viewer').isHidden(),true);await p.locator('[data-start-view="paths"]').click();await p.locator('[data-start-path="dna"]').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'dna');assert.equal(await p.locator('#learn-toggle').getAttribute('aria-current'),null);await p.locator('#learn-toggle').click();await p.goBack();await p.locator('#viewer').waitFor();
  await p.locator('#home').click();await p.locator('#home-page').waitFor();await p.close();
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});watch(m);
  for(const width of [390,320]){

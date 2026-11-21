@@ -47,7 +47,7 @@ const checks = [], errors = [];
 const check = text => { checks.push(text); console.log('PASS', text); };
 const ready = page => page.waitForFunction(() => document.querySelector('.offline-state')?.dataset.state === 'ready', null, {timeout:45000});
 const frame = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const open = async (page, hash='') => { await page.goto(base + hash); if(!hash)await page.locator('#home-explore').click(); await page.locator('#install-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
+const open = async (page, hash='') => { await page.goto(base + hash); if(!hash){await page.locator('#home-explore').click();await page.locator('[data-start-molecule="water"]').click();} await page.locator('#install-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
 const workerStatus = page => page.evaluate(async () => {
   const registration = await navigator.serviceWorker.getRegistration();
   return new Promise(resolve => { const channel = new MessageChannel(); channel.port1.onmessage = event => { channel.port1.close(); resolve(event.data); }; registration.active.postMessage({type:'OFFLINE_STATUS'}, [channel.port2]); });
@@ -101,6 +101,11 @@ try {
   await page.locator('#lesson-search').fill('replication');await page.locator('[data-lesson="topic-6-2"]').click();
   assert.equal(await page.locator('#lesson-content').isVisible(),true);assert.equal(await page.locator('#lesson-live').isHidden(),true);
   check('The lesson dashboard, unit deep links, search, and focused reading view work offline');
+  await page.locator('#lesson-catalog-button').click();await page.locator('#dashboard-explore').click();await page.locator('#explore-start').waitFor();
+  await page.reload();await page.locator('#explore-start').waitFor();assert.equal(await page.locator('#viewer').isHidden(),true);
+  await page.locator('#start-family').selectOption('lipids');await page.locator('[data-start-molecule="oleic-acid"]').click();await page.locator('#scene[data-model="molecules"]').waitFor();assert.match(page.url(),/molecule=oleic-acid/);
+  check('The starting-point chooser and selected molecular route work offline');
+
   await open(page,'#practice&type=mcq&item=ap-3-1');await page.locator('#practice-prompt').waitFor();
   assert.equal(await page.locator('.practice-mcq-stimulus table').count(),1);
   await page.locator('input[value="o0"]').check();await page.locator('#practice-submit').click();assert.match(await page.locator('.practice-feedback').innerText(),/Correct/);
