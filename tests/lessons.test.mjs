@@ -14,7 +14,7 @@ test('Every lesson uses existing ontology nodes, coherent routes and compatible 
   assert.equal(checkpoints(lesson).length,3);
   for(const step of lesson.steps){
    const path=buildPath(step.view.path,step.view.organism);assert.ok(path.steps.some(s=>s.id===step.view.model),`${lesson.id}/${step.id}`);
-   if(step.view.process)assert.ok(processes[step.view.process].models.includes(step.view.model));
+   if(step.view.process)assert.ok(processes[step.view.process].models.includes(step.view.lab?'lesson-lab':step.view.model));
    if(step.type==='question'){assert.equal(step.options.filter(o=>o.id===step.correct).length,1);assert.ok(step.options.every(o=>o.feedback.length>30));}
    if(step.cues){assert.equal(step.cues[0].at,0);assert.ok(step.cues.every((c,i)=>c.at<=1&&(!i||c.at>step.cues[i-1].at)));}
   }

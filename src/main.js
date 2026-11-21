@@ -368,7 +368,7 @@ try {
     const visible=!!snapshot&&!!scene?.renderer;
     $('#process-panel').hidden=!visible;document.body.classList.toggle('process-active',visible);
     if(!visible)return;
-    $('#process-name').textContent=processes[snapshot.id].name;
+    $('#process-name').textContent=snapshot.id.startsWith('topic-')?processes[snapshot.id].steps[snapshot.phase]:processes[snapshot.id].name;
     $('#process-panel').dataset.playing=String(playing);
     $('#process-range').value=snapshot.t;
     $('#process-range').setAttribute('aria-valuetext',snapshot.time);
@@ -514,7 +514,12 @@ try {
       leaveHome({push:true});
       lessonNavigation=true;
       try{setRoute(buildPath(view.path,view.organism),{model:view.model});}finally{lessonNavigation=false;}
-      activateProcess(view.process);scene.setEnvironment(view.environment||'favor-a');$('#selection-environment').value=view.environment||'favor-a';
+      if(view.lab){
+        scene.focus({id:'lesson-lab',data:{id:view.lab,topic:view.lab}});
+        $('#model-select').hidden=true;$('#model-name').hidden=false;$('#model-name').textContent=`Topic ${view.lab}`;$('#model-formula').textContent='';$('#model-size').textContent='';
+        state.process=view.process;scene.setProcess(view.process);
+      }else activateProcess(view.process);
+      scene.setEnvironment(view.environment||'favor-a');$('#selection-environment').value=view.environment||'favor-a';
       scene.playProcess(false);scene.seekProcess(view.at||0);
       if(view.autoplay&&state.autoplay&&!state.animationPaused&&!scene.reducedMotion)scene.playProcess(true);
     },
@@ -525,6 +530,9 @@ try {
     onChange(){updateHash();$('#learn-toggle').classList.toggle('active',!!lessonUI?.active);},
     onExit(){
       // Conditions available only in the lesson must not silently persist in Explore.
+      if(scene.focusDefinition?.id==='lesson-lab'){
+        scene.focusDefinition=null;scene.setProcess(null);scene.setDefinitions(definitions());scene.seek(state.target,true);renderModelUI();
+      }
       const at=scene.processProgress;
       if(Object.keys(scene.experimentOptions||{}).length){scene.setExperiment();scene.seekProcess(at);}
       $('#selection-environment').value=scene.environment;

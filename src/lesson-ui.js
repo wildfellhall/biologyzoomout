@@ -1,18 +1,18 @@
 import {activities,activityMarkup,diagramSVG,loadExperiments,saveExperiments,experimentResult} from './lesson-activities.js';
-import {lessons,lessonById,checkpoints,lessonKey,learningSource} from './lessons.js';
+import {lessons,lessonById,checkpoints,lessonKey,learningSource,framework} from './lessons.js';
 import {loadProgress,saveProgress,beginLesson,answerStep,isAnswered,finishLesson,reviewItems,recordReview} from './lesson-progress.js';
 import {esc} from './node-detail.js';
 
 export function createLessonUI(api){
  const $=s=>document.querySelector(s);let storage;try{storage=localStorage;}catch{}
- let labData=loadExperiments(storage),running=null,lastDiagram='';
+ let labData=loadExperiments(storage),running=null,lastDiagram='',catalogUnit=1,catalogQuery='';
  let progress=loadProgress(storage),active=null,stepIndex=0,reviewQueue=[],reviewIndex=0,reviewAnswers={},revealed=new Set(),lastCue='',persistent=!!storage;
  const player=$('#process-panel'),viewer=$('#viewer');
  $('#app').insertAdjacentHTML('beforeend',`
   <dialog id="lesson-dialog" aria-labelledby="lesson-catalog-title">
    <div class="dialog-toolbar"><h2 id="lesson-catalog-title">Learn with the models</h2><button id="lesson-catalog-close" class="icon-button" aria-label="Close lessons">×</button></div>
-   <div class="lesson-catalog-body"><p class="lesson-catalog-intro">${lessons.length} guided lessons with animated models. Predict, run an experiment, and explain the result.</p><div id="lesson-review-status"></div><div id="lesson-list"></div>
-    <details class="learning-method"><summary>How these lessons work</summary><p>Worked explanations lead into prediction, practice with feedback, and written recall. Review questions return after a delay. These choices follow <a href="${learningSource}" target="_blank" rel="noopener">IES learning guidance</a>; this app has not been tested for learning gains. Review intervals of 1, 3, 7, and 21 days are an authored schedule.</p><p>Completion records participation. Written explanations use your own self-check, not automated grading.</p></details><small id="lesson-storage-note"></small>
+   <div class="lesson-catalog-body"><p class="lesson-catalog-intro">Eight units. Every topic. Explore a model, test an explanation, then practice.</p><div id="lesson-review-status"></div><div id="lesson-resume"></div><nav id="lesson-units" aria-label="Course units"></nav><label class="lesson-search"><span class="sr-only">Search all lessons</span><input id="lesson-search" type="search" placeholder="Find a topic…" autocomplete="off"></label><div class="lesson-unit-heading"><h3 id="lesson-unit-heading"></h3><span id="lesson-unit-count"></span></div><div id="lesson-list"></div>
+    <details class="learning-method"><summary>How these lessons work</summary><p>Worked explanations lead into prediction, practice with feedback, and written recall. Review questions return after a delay. These choices follow <a href="${learningSource}" target="_blank" rel="noopener">IES learning guidance</a>; this app has not been tested for learning gains. Review intervals of 1, 3, 7, and 21 days are an authored schedule.</p><p>Completion records participation. Written explanations use your own self-check, not automated grading.</p><p>60 topic lessons follow the 2026–27 framework, with seven focused model studies. Topic coverage does not replace required laboratory investigations or establish mastery. <a href="/data/lesson-coverage.csv" download>Topic coverage table ↓</a> · <a href="${framework.source}" target="_blank" rel="noopener">College Board framework ↗</a></p></details><small id="lesson-storage-note"></small>
    </div>
   </dialog>
   <section id="lesson-panel" aria-labelledby="lesson-heading" hidden>
@@ -35,12 +35,27 @@ export function createLessonUI(api){
  function openCatalog(){
   savePosition();const due=reviewItems(progress),all=reviewItems(progress,Date.now(),true),next=all.length?Math.min(...all.map(q=>progress.reviews[q.key].due)):null;
   $('#lesson-review-status').innerHTML=all.length?`<div class="review-banner"><span>${due.length?`${due.length} review${due.length===1?'':'s'} ready`:`Next review · ${new Date(next).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`}</span><button id="start-review">${due.length?'Review now':'Practice again'} →</button></div>`:'';
-  $('#lesson-list').innerHTML=lessons.map((l,i)=>{
-   const saved=progress.lessons[l.id],label=saved?.finishedAt!==null&&saved?.finishedAt!==undefined?'Revisit':saved?'Resume':'Begin';
-   return `<button class="lesson-card" data-lesson="${l.id}"><span class="lesson-number">${String(i+1).padStart(2,'0')}</span><div><small>${esc(l.unit)} · about ${l.minutes} min</small><h3>${esc(l.title)}</h3><p>${esc(l.objective)}</p></div><span class="lesson-card-action">${label} ↗</span></button>`;
-  }).join('');
+  const savedLesson=lessonById(progress.lastLesson);
+  if(savedLesson&&!catalogQuery)catalogUnit=savedLesson.unitNumber||Number(savedLesson.unit.match(/\d/)?.[0])||1;
+  $('#lesson-resume').innerHTML=savedLesson?`<button data-resume="${savedLesson.id}"><span>Continue learning</span><b>${esc(savedLesson.title)}</b><span>→</span></button>`:'';
+  renderCatalog();
   $('#lesson-storage-note').textContent=persistent?'Progress is stored on this device. Reviews appear here when you return.':'Storage is unavailable. Progress will last for this session.';
   if(!dialog.open)dialog.showModal();
+ }
+ function renderCatalog(){
+  $('#lesson-units').innerHTML=Object.entries(framework.units).map(([number,name])=>`<button data-course-unit="${number}" aria-pressed="${!catalogQuery&&Number(number)===catalogUnit}" title="${esc(name)}" aria-label="Unit ${number}: ${esc(name)}">${number}</button>`).join('');
+  const course=lessons.filter(l=>l.topic),query=catalogQuery.trim().toLowerCase();
+  const matches=l=>`${l.topic||''} ${l.title} ${l.objective} ${l.unit}`.toLowerCase().includes(query);
+  const shown=course.filter(l=>query?matches(l):l.unitNumber===catalogUnit);
+  const focused=lessons.filter(l=>!l.topic&&(query?matches(l):Number(l.unit.match(/\d/)?.[0])===catalogUnit));
+  const card=(l,focused=false)=>{
+   const saved=progress.lessons[l.id],complete=saved?.finishedAt!=null,label=complete?'Revisit':saved?'Resume':'Begin';
+   return `<button class="lesson-card ${focused?'focused-lesson':'topic-lesson'}" data-lesson="${l.id}"><span class="lesson-number">${esc(l.topic||'↳')}</span><div><small>${focused?'Focused study':`Topic ${l.topic}`} · about ${l.minutes} min${complete?' · completed':''}</small><h3>${esc(l.title)}</h3><p>${esc(l.objective)}</p></div><span class="lesson-card-action">${label} ↗</span></button>`;
+  };
+  $('#lesson-unit-heading').textContent=query?'Search results':`Unit ${catalogUnit} · ${framework.units[catalogUnit]}`;
+  const completed=shown.filter(l=>progress.lessons[l.id]?.finishedAt!=null).length;
+  $('#lesson-unit-count').textContent=query?`${shown.length+focused.length} lessons`:`${completed} / ${shown.length} topics completed`;
+  $('#lesson-list').innerHTML=shown.map(l=>card(l)).join('')+(focused.length?`<details class="focused-lessons" ${query?'open':''}><summary>Focused model studies · ${focused.length}</summary>${focused.map(l=>card(l,true)).join('')}</details>`:'')+(!shown.length&&!focused.length?'<p class="lesson-empty">No matching lessons. Try a topic number or a shorter phrase.</p>':'');
  }
  function start(id,{step:requested=null}={}){
   const l=lessonById(id);if(!l)return false;
@@ -149,7 +164,7 @@ export function createLessonUI(api){
  function onFrame(snapshot){
   if(!active||!canPlay()||!snapshot||snapshot.id!==step().view.process||panel.dataset.stepKey!==key()||panel.dataset.type==='complete'||!$('#lesson-cues'))return;
   const cues=step().cues,index=Math.max(0,cues.findLastIndex(c=>snapshot.t>=c.at)),cue=cues[index];
-  const caption=snapshot.id==='translation'||snapshot.condition&&snapshot.condition!=='normal'?snapshot.caption:cue.text;
+  const caption=(snapshot.id==='translation'||snapshot.id.startsWith('topic-'))||snapshot.condition&&snapshot.condition!=='normal'?snapshot.caption:cue.text;
   const cueKey=`${key()}:${index}:${caption}`;
   if(lastCue!==cueKey){lastCue=cueKey;$('#lesson-cue-text').textContent=caption;for(const [i,b]of [...$('#lesson-cues').children].entries())b.setAttribute('aria-pressed',String(i===index));}
   const drawing=`${key()}:${Math.floor(snapshot.t*40)}:${snapshot.condition||''}`;
@@ -181,6 +196,9 @@ export function createLessonUI(api){
  });
  panel.addEventListener('input',event=>{if(event.target.id==='experiment-prediction'){labData[lesson().id].prediction=event.target.value;saveExperiments(storage,labData);return;}if(event.target.id==='lesson-response'){record({text:event.target.value,rating:null});$('#lesson-reveal').disabled=event.target.value.trim().length<12;$('#lesson-next').disabled=true;for(const button of panel.querySelectorAll('[data-rating]'))button.setAttribute('aria-pressed','false');}});
  panel.addEventListener('change',event=>{if(event.target.id==='experiment-condition'){running=null;api.scene.playProcess(false);labData[lesson().id].condition=event.target.value;saveExperiments(storage,labData);$('#experiment-status').textContent='Choose Run experiment to apply this condition.';return;}if(event.target.id==='lesson-environment'){running=null;api.scene.setEnvironment(event.target.value);$('#selection-environment').value=event.target.value;api.scene.playProcess(api.canAutoplay());}if(event.target.id==='lesson-skill'&&event.target.value){api.openNode(event.target.value);event.target.value='';}});
+ $('#lesson-units').onclick=event=>{const button=event.target.closest('[data-course-unit]');if(button){catalogUnit=Number(button.dataset.courseUnit);catalogQuery='';$('#lesson-search').value='';renderCatalog();}};
+ $('#lesson-search').oninput=event=>{catalogQuery=event.target.value;renderCatalog();};
+ $('#lesson-resume').onclick=event=>{const button=event.target.closest('[data-resume]');if(button)start(button.dataset.resume);};
  $('#lesson-list').onclick=event=>{const card=event.target.closest('[data-lesson]');if(card){$('#lesson-next').hidden=false;start(card.dataset.lesson);}};
  $('#lesson-review-status').onclick=event=>{if(event.target.closest('#start-review')){$('#lesson-next').hidden=false;startReview();}};
  $('#lesson-catalog-close').onclick=()=>dialog.close();$('#lesson-catalog-button').onclick=openCatalog;$('#lesson-exit').onclick=()=>exit();$('#lesson-next').onclick=next;$('#lesson-back').onclick=back;

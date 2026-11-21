@@ -52,7 +52,7 @@ test('All inspectable structures and animation models resolve without changing o
  const nodes=new Set(JSON.parse(fs.readFileSync(new URL('../public/data/ontology.json',import.meta.url))).nodes.map(n=>n.id));
  for(const info of Object.values({...structureInfo,...pathwayInfo}))for(const id of info.nodes)assert.ok(nodes.has(id),id);
  for(const id of [...Object.keys(structureInfo),...Object.keys(cellParts)])for(const child of childrenOf(id))assert.ok(structureInfo[child]||modelInfo[child]||pathwayInfo[child],child);
- for(const process of Object.values(processes))for(const id of process.models)assert.ok(structureInfo[id]||modelInfo[id]||pathwayInfo[id],id);
+ for(const process of Object.values(processes))for(const id of process.models)assert.ok(id==='lesson-lab'||structureInfo[id]||modelInfo[id]||pathwayInfo[id],id);
  assert.ok(cellParts['plant-cell'].includes('mitochondrion'));
  assert.ok(!cellParts['animal-cell'].includes('chloroplast'));
 });

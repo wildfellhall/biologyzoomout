@@ -1,0 +1,920 @@
+{
+  "course": "AP Biology",
+  "year": "2026\u201327",
+  "edition": "CED effective Fall 2025, with June 2026 corrections",
+  "checkedOn": "2026-11-21",
+  "source": "https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf",
+  "changes": "https://apcentral.collegeboard.org/courses/how-ap-develops-courses-and-exams/course-changes-overview",
+  "corrections": "https://apcentral.collegeboard.org/media/pdf/ap-biology-ced-clarifications-and-corrections.pdf",
+  "scope": "One authored interactive lesson per official topic. Topic availability is not a claim of mastery, complete essential-knowledge assessment, or laboratory-course completion.",
+  "units": {
+    "1": "Chemistry of Life",
+    "2": "Cells",
+    "3": "Cellular Energetics",
+    "4": "Cell Communication and Cell Cycle",
+    "5": "Heredity",
+    "6": "Gene Expression and Regulation",
+    "7": "Natural Selection",
+    "8": "Ecology"
+  },
+  "topics": [
+    {
+      "id": "1.1",
+      "title": "Structure of Water and Hydrogen Bonding",
+      "pdf_page": 39,
+      "printed_page": 32,
+      "nodes": [
+        "APBIO-1.1-01",
+        "APBIO-1.1-02",
+        "APBIO-1.1-03"
+      ],
+      "objectives": [
+        "1.1.A"
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "Elements of Life",
+      "pdf_page": 40,
+      "printed_page": 33,
+      "nodes": [
+        "APBIO-1.2-01"
+      ],
+      "objectives": [
+        "1.2.A"
+      ]
+    },
+    {
+      "id": "1.3",
+      "title": "Introduction to Macromolecules",
+      "pdf_page": 41,
+      "printed_page": 34,
+      "nodes": [
+        "APBIO-1.3-01"
+      ],
+      "objectives": [
+        "1.3.A"
+      ]
+    },
+    {
+      "id": "1.4",
+      "title": "Carbohydrates",
+      "pdf_page": 42,
+      "printed_page": 35,
+      "nodes": [
+        "APBIO-1.4-01"
+      ],
+      "objectives": [
+        "1.4.A"
+      ]
+    },
+    {
+      "id": "1.5",
+      "title": "Lipids",
+      "pdf_page": 43,
+      "printed_page": 36,
+      "nodes": [
+        "APBIO-1.5-01",
+        "APBIO-1.5-02",
+        "APBIO-1.5-03"
+      ],
+      "objectives": [
+        "1.5.A"
+      ]
+    },
+    {
+      "id": "1.6",
+      "title": "Nucleic Acids",
+      "pdf_page": 45,
+      "printed_page": 38,
+      "nodes": [
+        "APBIO-1.6-01",
+        "APBIO-1.6-02",
+        "APBIO-1.6-03"
+      ],
+      "objectives": [
+        "1.6.A"
+      ]
+    },
+    {
+      "id": "1.7",
+      "title": "Proteins",
+      "pdf_page": 47,
+      "printed_page": 40,
+      "nodes": [
+        "APBIO-1.7-01",
+        "APBIO-1.7-02",
+        "APBIO-1.7-03",
+        "APBIO-1.7-04",
+        "APBIO-1.7-05",
+        "APBIO-1.7-06"
+      ],
+      "objectives": [
+        "1.7.A"
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "Cell Structure and Function",
+      "pdf_page": 56,
+      "printed_page": 49,
+      "nodes": [
+        "APBIO-2.1-01",
+        "APBIO-2.1-02",
+        "APBIO-2.1-03",
+        "APBIO-2.1-04",
+        "APBIO-2.1-05",
+        "APBIO-2.1-06",
+        "APBIO-2.1-07",
+        "APBIO-2.1-08",
+        "APBIO-2.1-09",
+        "APBIO-2.1-10"
+      ],
+      "objectives": [
+        "2.1.A"
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "Cell Size",
+      "pdf_page": 59,
+      "printed_page": 52,
+      "nodes": [
+        "APBIO-2.2-01",
+        "APBIO-2.2-02"
+      ],
+      "objectives": [
+        "2.2.A"
+      ]
+    },
+    {
+      "id": "2.3",
+      "title": "Plasma Membrane",
+      "pdf_page": 61,
+      "printed_page": 54,
+      "nodes": [
+        "APBIO-2.3-01",
+        "APBIO-2.3-02"
+      ],
+      "objectives": [
+        "2.3.A",
+        "2.3.B"
+      ]
+    },
+    {
+      "id": "2.4",
+      "title": "Membrane Permeability",
+      "pdf_page": 62,
+      "printed_page": 55,
+      "nodes": [
+        "APBIO-2.4-01",
+        "APBIO-2.4-02"
+      ],
+      "objectives": [
+        "2.4.A",
+        "2.4.B"
+      ]
+    },
+    {
+      "id": "2.5",
+      "title": "Membrane Transport",
+      "pdf_page": 63,
+      "printed_page": 56,
+      "nodes": [
+        "APBIO-2.5-01",
+        "APBIO-2.5-02",
+        "APBIO-2.5-03"
+      ],
+      "objectives": [
+        "2.5.A",
+        "2.5.B"
+      ]
+    },
+    {
+      "id": "2.6",
+      "title": "Facilitated Diffusion",
+      "pdf_page": 64,
+      "printed_page": 57,
+      "nodes": [
+        "APBIO-2.6-01",
+        "APBIO-2.6-02"
+      ],
+      "objectives": [
+        "2.6.A"
+      ]
+    },
+    {
+      "id": "2.7",
+      "title": "Tonicity and Osmoregulation",
+      "pdf_page": 65,
+      "printed_page": 58,
+      "nodes": [
+        "APBIO-2.7-01",
+        "APBIO-2.7-02",
+        "APBIO-2.7-03"
+      ],
+      "objectives": [
+        "2.7.A",
+        "2.7.B"
+      ]
+    },
+    {
+      "id": "2.8",
+      "title": "Mechanisms of Transport",
+      "pdf_page": 67,
+      "printed_page": 60,
+      "nodes": [
+        "APBIO-2.8-01"
+      ],
+      "objectives": [
+        "2.8.A"
+      ]
+    },
+    {
+      "id": "2.9",
+      "title": "Cell Compartmentalization",
+      "pdf_page": 68,
+      "printed_page": 61,
+      "nodes": [
+        "APBIO-2.9-01"
+      ],
+      "objectives": [
+        "2.9.A",
+        "2.9.B"
+      ]
+    },
+    {
+      "id": "2.10",
+      "title": "Origins of Cell Compartmentalization",
+      "pdf_page": 69,
+      "printed_page": 62,
+      "nodes": [
+        "APBIO-2.10-01",
+        "APBIO-2.10-02"
+      ],
+      "objectives": [
+        "2.10.A"
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "Enzymes",
+      "pdf_page": 75,
+      "printed_page": 68,
+      "nodes": [
+        "APBIO-3.1-01",
+        "APBIO-3.1-02"
+      ],
+      "objectives": [
+        "3.1.A"
+      ]
+    },
+    {
+      "id": "3.2",
+      "title": "Environmental Impacts on Enzyme Function",
+      "pdf_page": 76,
+      "printed_page": 69,
+      "nodes": [
+        "APBIO-3.2-01",
+        "APBIO-3.2-02",
+        "APBIO-3.2-03",
+        "APBIO-3.2-04",
+        "APBIO-3.2-05"
+      ],
+      "objectives": [
+        "3.2.A",
+        "3.2.B"
+      ]
+    },
+    {
+      "id": "3.3",
+      "title": "Cellular Energy",
+      "pdf_page": 78,
+      "printed_page": 71,
+      "nodes": [
+        "APBIO-3.3-01",
+        "APBIO-3.3-02",
+        "APBIO-3.3-03",
+        "APBIO-3.3-04"
+      ],
+      "objectives": [
+        "3.3.A",
+        "3.3.B"
+      ]
+    },
+    {
+      "id": "3.4",
+      "title": "Photosynthesis",
+      "pdf_page": 80,
+      "printed_page": 73,
+      "nodes": [
+        "APBIO-3.4-01",
+        "APBIO-3.4-02",
+        "APBIO-3.4-03",
+        "APBIO-3.4-04",
+        "APBIO-3.4-05",
+        "APBIO-3.4-06",
+        "APBIO-2.1-09"
+      ],
+      "objectives": [
+        "3.4.A",
+        "3.4.B"
+      ]
+    },
+    {
+      "id": "3.5",
+      "title": "Cellular Respiration",
+      "pdf_page": 83,
+      "printed_page": 76,
+      "nodes": [
+        "APBIO-3.5-01",
+        "APBIO-3.5-02",
+        "APBIO-3.5-03",
+        "APBIO-3.5-04",
+        "APBIO-3.5-05",
+        "APBIO-3.5-06",
+        "APBIO-3.5-07"
+      ],
+      "objectives": [
+        "3.5.A",
+        "3.5.B"
+      ]
+    },
+    {
+      "id": "4.1",
+      "title": "Cell Communication",
+      "pdf_page": 91,
+      "printed_page": 84,
+      "nodes": [
+        "APBIO-4.1-01"
+      ],
+      "objectives": [
+        "4.1.A",
+        "4.1.B"
+      ]
+    },
+    {
+      "id": "4.2",
+      "title": "Introduction to Signal Transduction",
+      "pdf_page": 92,
+      "printed_page": 85,
+      "nodes": [
+        "APBIO-4.2-01",
+        "APBIO-4.2-02",
+        "APBIO-4.2-03",
+        "APBIO-4.2-04"
+      ],
+      "objectives": [
+        "4.2.A",
+        "4.2.B"
+      ]
+    },
+    {
+      "id": "4.3",
+      "title": "Signal Transduction Pathways",
+      "pdf_page": 94,
+      "printed_page": 87,
+      "nodes": [
+        "APBIO-4.3-01",
+        "APBIO-4.3-02"
+      ],
+      "objectives": [
+        "4.3.A",
+        "4.3.B"
+      ]
+    },
+    {
+      "id": "4.4",
+      "title": "Feedback",
+      "pdf_page": 95,
+      "printed_page": 88,
+      "nodes": [
+        "APBIO-4.4-01",
+        "APBIO-4.4-02",
+        "APBIO-4.2-04"
+      ],
+      "objectives": [
+        "4.4.A"
+      ]
+    },
+    {
+      "id": "4.5",
+      "title": "Cell Cycle",
+      "pdf_page": 96,
+      "printed_page": 89,
+      "nodes": [
+        "APBIO-4.5-01",
+        "APBIO-4.5-02",
+        "APBIO-4.5-03",
+        "APBIO-4.5-04"
+      ],
+      "objectives": [
+        "4.5.A",
+        "4.5.B"
+      ]
+    },
+    {
+      "id": "4.6",
+      "title": "Regulation of Cell Cycle",
+      "pdf_page": 98,
+      "printed_page": 91,
+      "nodes": [
+        "APBIO-4.6-01",
+        "APBIO-4.6-02"
+      ],
+      "objectives": [
+        "4.6.A",
+        "4.6.B"
+      ]
+    },
+    {
+      "id": "5.1",
+      "title": "Meiosis",
+      "pdf_page": 105,
+      "printed_page": 98,
+      "nodes": [
+        "APBIO-5.1-01",
+        "APBIO-5.1-02",
+        "APBIO-5.1-03",
+        "APBIO-5.1-04"
+      ],
+      "objectives": [
+        "5.1.A",
+        "5.1.B"
+      ]
+    },
+    {
+      "id": "5.2",
+      "title": "Meiosis and Genetic Diversity",
+      "pdf_page": 107,
+      "printed_page": 100,
+      "nodes": [
+        "APBIO-5.2-01",
+        "APBIO-5.2-02",
+        "APBIO-5.2-03",
+        "APBIO-5.2-04"
+      ],
+      "objectives": [
+        "5.2.A"
+      ]
+    },
+    {
+      "id": "5.3",
+      "title": "Mendelian Genetics",
+      "pdf_page": 108,
+      "printed_page": 101,
+      "nodes": [
+        "APBIO-5.3-01",
+        "APBIO-5.3-02",
+        "APBIO-5.3-03",
+        "APBIO-5.3-04"
+      ],
+      "objectives": [
+        "5.3.A"
+      ]
+    },
+    {
+      "id": "5.4",
+      "title": "Non-Mendelian Genetics",
+      "pdf_page": 110,
+      "printed_page": 103,
+      "nodes": [
+        "APBIO-5.4-01",
+        "APBIO-5.4-02",
+        "APBIO-5.4-03",
+        "APBIO-5.4-04",
+        "APBIO-5.4-05",
+        "APBIO-5.4-06"
+      ],
+      "objectives": [
+        "5.4.A"
+      ]
+    },
+    {
+      "id": "5.5",
+      "title": "Environmental Effects on Phenotype",
+      "pdf_page": 112,
+      "printed_page": 105,
+      "nodes": [
+        "APBIO-5.5-01"
+      ],
+      "objectives": [
+        "5.5.A"
+      ]
+    },
+    {
+      "id": "6.1",
+      "title": "DNA and RNA Structure",
+      "pdf_page": 119,
+      "printed_page": 112,
+      "nodes": [
+        "APBIO-6.1-01",
+        "APBIO-6.1-02"
+      ],
+      "objectives": [
+        "6.1.A",
+        "6.1.B"
+      ]
+    },
+    {
+      "id": "6.2",
+      "title": "DNA Replication",
+      "pdf_page": 120,
+      "printed_page": 113,
+      "nodes": [
+        "APBIO-6.2-01",
+        "APBIO-6.2-02",
+        "APBIO-6.2-03"
+      ],
+      "objectives": [
+        "6.2.A"
+      ]
+    },
+    {
+      "id": "6.3",
+      "title": "Transcription and RNA Processing",
+      "pdf_page": 121,
+      "printed_page": 114,
+      "nodes": [
+        "APBIO-6.3-01",
+        "APBIO-6.3-02",
+        "APBIO-6.3-03",
+        "APBIO-6.3-04"
+      ],
+      "objectives": [
+        "6.3.A"
+      ]
+    },
+    {
+      "id": "6.4",
+      "title": "Translation",
+      "pdf_page": 123,
+      "printed_page": 116,
+      "nodes": [
+        "APBIO-6.4-01",
+        "APBIO-6.4-02",
+        "APBIO-6.4-03",
+        "APBIO-6.4-04",
+        "APBIO-6.4-05",
+        "APBIO-6.4-06"
+      ],
+      "objectives": [
+        "6.4.A"
+      ]
+    },
+    {
+      "id": "6.5",
+      "title": "Regulation of Gene Expression",
+      "pdf_page": 125,
+      "printed_page": 118,
+      "nodes": [
+        "APBIO-6.5-01",
+        "APBIO-6.5-02",
+        "APBIO-6.5-03",
+        "APBIO-6.5-04"
+      ],
+      "objectives": [
+        "6.5.A",
+        "6.5.B"
+      ]
+    },
+    {
+      "id": "6.6",
+      "title": "Gene Expression and Cell Specialization",
+      "pdf_page": 127,
+      "printed_page": 120,
+      "nodes": [
+        "APBIO-6.6-01",
+        "APBIO-6.6-02",
+        "APBIO-6.6-03"
+      ],
+      "objectives": [
+        "6.6.A",
+        "6.6.B"
+      ]
+    },
+    {
+      "id": "6.7",
+      "title": "Mutations",
+      "pdf_page": 128,
+      "printed_page": 121,
+      "nodes": [
+        "APBIO-6.7-01",
+        "APBIO-6.7-02",
+        "APBIO-6.7-03",
+        "APBIO-6.7-04",
+        "APBIO-5.2-04",
+        "APBIO-6.4-05"
+      ],
+      "objectives": [
+        "6.7.A",
+        "6.7.B",
+        "6.7.C"
+      ]
+    },
+    {
+      "id": "6.8",
+      "title": "Biotechnology",
+      "pdf_page": 130,
+      "printed_page": 123,
+      "nodes": [
+        "APBIO-6.8-01",
+        "APBIO-6.8-02",
+        "APBIO-6.8-03",
+        "APBIO-6.8-04"
+      ],
+      "objectives": [
+        "6.8.A"
+      ]
+    },
+    {
+      "id": "7.1",
+      "title": "Introduction to Natural Selection",
+      "pdf_page": 138,
+      "printed_page": 131,
+      "nodes": [
+        "APBIO-7.1-01",
+        "APBIO-7.1-02",
+        "APBIO-7.1-03"
+      ],
+      "objectives": [
+        "7.1.A",
+        "7.1.B"
+      ]
+    },
+    {
+      "id": "7.2",
+      "title": "Natural Selection",
+      "pdf_page": 139,
+      "printed_page": 132,
+      "nodes": [
+        "APBIO-7.2-01",
+        "APBIO-7.2-02"
+      ],
+      "objectives": [
+        "7.2.A",
+        "7.2.B"
+      ]
+    },
+    {
+      "id": "7.3",
+      "title": "Artificial Selection",
+      "pdf_page": 140,
+      "printed_page": 133,
+      "nodes": [
+        "APBIO-7.3-01"
+      ],
+      "objectives": [
+        "7.3.A"
+      ]
+    },
+    {
+      "id": "7.4",
+      "title": "Population Genetics",
+      "pdf_page": 141,
+      "printed_page": 134,
+      "nodes": [
+        "APBIO-7.4-01",
+        "APBIO-7.4-02",
+        "APBIO-7.4-03",
+        "APBIO-7.4-04"
+      ],
+      "objectives": [
+        "7.4.A",
+        "7.4.B",
+        "7.4.C"
+      ]
+    },
+    {
+      "id": "7.5",
+      "title": "Hardy\u2013Weinberg Equilibrium",
+      "pdf_page": 143,
+      "printed_page": 136,
+      "nodes": [
+        "APBIO-7.5-01",
+        "APBIO-7.5-02",
+        "APBIO-7.5-03",
+        "APBIO-7.5-04"
+      ],
+      "objectives": [
+        "7.5.A"
+      ]
+    },
+    {
+      "id": "7.6",
+      "title": "Evidence of Evolution",
+      "pdf_page": 144,
+      "printed_page": 137,
+      "nodes": [
+        "APBIO-7.6-01",
+        "APBIO-7.6-02",
+        "APBIO-7.9-04"
+      ],
+      "objectives": [
+        "7.6.A",
+        "7.6.B"
+      ]
+    },
+    {
+      "id": "7.7",
+      "title": "Common Ancestry",
+      "pdf_page": 145,
+      "printed_page": 138,
+      "nodes": [
+        "APBIO-7.7-01"
+      ],
+      "objectives": [
+        "7.7.A"
+      ]
+    },
+    {
+      "id": "7.8",
+      "title": "Continuing Evolution",
+      "pdf_page": 146,
+      "printed_page": 139,
+      "nodes": [
+        "APBIO-7.8-01"
+      ],
+      "objectives": [
+        "7.8.A"
+      ]
+    },
+    {
+      "id": "7.9",
+      "title": "Phylogeny",
+      "pdf_page": 147,
+      "printed_page": 140,
+      "nodes": [
+        "APBIO-7.9-01",
+        "APBIO-7.9-02",
+        "APBIO-7.9-03",
+        "APBIO-7.9-04"
+      ],
+      "objectives": [
+        "7.9.A",
+        "7.9.B"
+      ]
+    },
+    {
+      "id": "7.10",
+      "title": "Speciation",
+      "pdf_page": 149,
+      "printed_page": 142,
+      "nodes": [
+        "APBIO-7.10-01",
+        "APBIO-7.10-02",
+        "APBIO-7.10-03",
+        "APBIO-7.10-04",
+        "APBIO-7.10-05",
+        "APBIO-7.10-06"
+      ],
+      "objectives": [
+        "7.10.A",
+        "7.10.B",
+        "7.10.C"
+      ]
+    },
+    {
+      "id": "7.11",
+      "title": "Variations in Populations",
+      "pdf_page": 151,
+      "printed_page": 144,
+      "nodes": [
+        "APBIO-7.11-01"
+      ],
+      "objectives": [
+        "7.11.A"
+      ]
+    },
+    {
+      "id": "7.12",
+      "title": "Origins of Life on Earth",
+      "pdf_page": 152,
+      "printed_page": 145,
+      "nodes": [
+        "APBIO-7.12-01",
+        "APBIO-7.12-02"
+      ],
+      "objectives": [
+        "7.12.A"
+      ]
+    },
+    {
+      "id": "8.1",
+      "title": "Responses to the Environment",
+      "pdf_page": 159,
+      "printed_page": 152,
+      "nodes": [
+        "APBIO-8.1-01",
+        "APBIO-8.1-02"
+      ],
+      "objectives": [
+        "8.1.A",
+        "8.1.B"
+      ]
+    },
+    {
+      "id": "8.2",
+      "title": "Energy Flow Through Ecosystems",
+      "pdf_page": 161,
+      "printed_page": 154,
+      "nodes": [
+        "APBIO-8.2-01",
+        "APBIO-8.2-02",
+        "APBIO-8.2-03",
+        "APBIO-8.2-04",
+        "APBIO-8.2-05",
+        "APBIO-8.2-06",
+        "APBIO-8.2-07",
+        "APBIO-8.2-08",
+        "APBIO-8.2-09",
+        "APBIO-8.2-10"
+      ],
+      "objectives": [
+        "8.2.A",
+        "8.2.B",
+        "8.2.C",
+        "8.2.D"
+      ]
+    },
+    {
+      "id": "8.3",
+      "title": "Population Ecology",
+      "pdf_page": 164,
+      "printed_page": 157,
+      "nodes": [
+        "APBIO-8.3-01",
+        "APBIO-8.3-02",
+        "APBIO-8.3-03"
+      ],
+      "objectives": [
+        "8.3.A"
+      ]
+    },
+    {
+      "id": "8.4",
+      "title": "Effect of Density on Populations",
+      "pdf_page": 166,
+      "printed_page": 159,
+      "nodes": [
+        "APBIO-8.4-01",
+        "APBIO-8.4-02",
+        "APBIO-8.4-03"
+      ],
+      "objectives": [
+        "8.4.A"
+      ]
+    },
+    {
+      "id": "8.5",
+      "title": "Community Ecology",
+      "pdf_page": 167,
+      "printed_page": 160,
+      "nodes": [
+        "APBIO-8.5-01",
+        "APBIO-8.5-02",
+        "APBIO-8.5-03",
+        "APBIO-8.5-04",
+        "APBIO-8.5-05"
+      ],
+      "objectives": [
+        "8.5.A",
+        "8.5.B"
+      ]
+    },
+    {
+      "id": "8.6",
+      "title": "Biodiversity",
+      "pdf_page": 169,
+      "printed_page": 162,
+      "nodes": [
+        "APBIO-8.6-01",
+        "APBIO-8.6-02"
+      ],
+      "objectives": [
+        "8.6.A",
+        "8.6.B"
+      ]
+    },
+    {
+      "id": "8.7",
+      "title": "Disruptions in Ecosystems",
+      "pdf_page": 170,
+      "printed_page": 163,
+      "nodes": [
+        "APBIO-8.7-01",
+        "APBIO-8.7-02",
+        "APBIO-8.7-03",
+        "APBIO-8.7-04",
+        "APBIO-8.7-05",
+        "APBIO-8.7-06"
+      ],
+      "objectives": [
+        "8.7.A",
+        "8.7.B",
+        "8.7.C",
+        "8.7.D"
+      ]
+    }
+  ]
+}

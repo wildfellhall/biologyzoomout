@@ -117,6 +117,24 @@ try {
   assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
   check('Replication, translation, and peptide experiments run offline and preserve predictions and results');
 
+  for (const id of ['topic-1-1','topic-2-2','topic-3-1','topic-4-5','topic-5-1','topic-6-3','topic-7-9','topic-8-4']) {
+    await open(page, `#lesson=${id}&step=0`);
+    assert.equal(await page.locator('#scene').getAttribute('data-model'), 'lesson-lab');
+    await page.locator('#experiment-tab').click();
+    await page.locator('#experiment-prediction').fill('Compare the result with the stated mechanism.');
+    await page.locator('#experiment-run').click();
+    await page.waitForFunction(() => document.querySelector('#experiment-status').textContent.startsWith('Run complete'));
+    assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
+  }
+  const coverage = await page.evaluate(async () => (await fetch('/data/lesson-coverage.json')).json());
+  assert.equal(coverage.lessonCount, 60);
+  assert.equal(await page.evaluate(async () => (await (await fetch('/data/lesson-coverage.csv')).text()).trim().split('\n').length), 61);
+  await page.reload(); await page.locator('#experiment-tab').click();
+  assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
+  check('Previously unvisited topic lessons from all eight units and their coverage tables work offline');
+  // Leave the original detailed study open for the existing update-lifecycle check.
+  await open(page, '#lesson=polypeptide&step=0');
+
   await page.locator('#install-toggle').click();
   await ready(page);
   assert.match(await page.locator('#offline-title').textContent(), /ready.*offline|offline.*ready/i);

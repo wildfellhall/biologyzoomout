@@ -1,4 +1,6 @@
 // Original lesson prompts. These reference the canonical ontology without changing it.
+import {courseLessons,framework,focusedTopicMap} from './course/lessons.js';
+export {framework,focusedTopicMap};
 import {geneticsLessons} from './genetics-lessons.js';
 const ref=page=>`https://openstax.org/books/biology-2e/pages/${page}`;
 const view=(path,model,process=null,at=0,organism='plant')=>({path,model,process,at,organism});
@@ -110,7 +112,7 @@ export const lessons=[
   ],
  },
 ];
-lessons.push(...geneticsLessons);
+lessons.push(...geneticsLessons,...courseLessons);
 // Explanation and observation steps share the same manipulable reaction. Saved
 // checkpoint IDs and answer meanings stay stable as activities are added.
 for(const lesson of lessons){

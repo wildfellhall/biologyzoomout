@@ -1,3 +1,4 @@
+import {makeCourseModel} from './course/models.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ModelBuilders, disposeModel } from './model-builders.js';
@@ -127,6 +128,7 @@ export class BiologyScene extends ModelBuilders {
     this.activeView?.processRig?.update(snapshot);
     const view=this.activeView;
     if(view){const bounds=snapshot?view.processBounds:view.baseBounds;view.content.position.copy(bounds.center).negate();view.normalized.scale.setScalar(3.1/bounds.radius);}
+    if(this.focusDefinition?.id==='lesson-lab')this.fitCamera();
     if(this.controls)this.controls.autoRotate=!this.paused&&!this.process&&!this.labelsVisible;
     this.onProcess?.(snapshot,this.processPlaying);
     if(this.labelLayer)this.labelLayer.hidden=!(this.labelsVisible||snapshot);
@@ -170,7 +172,12 @@ export class BiologyScene extends ModelBuilders {
     const first=this.focusDefinition||this.definitions[lower],next=this.definitions[lower+1]||first;
     const width=id=>id==='plant'?.7:1;
     const widthFraction=THREE.MathUtils.lerp(width(first?.id),width(next?.id),smooth(0,1,fraction));
-    this.camera.position.normalize().multiplyScalar(11.5*Math.max(1,widthFraction/this.camera.aspect));
+    const bounds=this.process?this.activeView?.processBounds:this.activeView?.baseBounds;
+    const extent=bounds?.size?.clone().multiplyScalar(3.1/bounds.radius);
+    const distance=first?.id==='lesson-lab'&&extent
+      ?8*Math.max(1,(extent.y+.2*extent.z)/4.5,(extent.x+.2*extent.z)/(4.5*this.camera.aspect))
+      :11.5*Math.max(1,widthFraction/this.camera.aspect);
+    this.camera.position.normalize().multiplyScalar(distance);
   }
 
   setDefinitions(definitions) {
@@ -220,7 +227,8 @@ export class BiologyScene extends ModelBuilders {
     this.buildLabelLayer=document.createElement('div');
     this.buildLabelLayer.className='view-labels';
     this.labelLayer.append(this.buildLabelLayer);
-    if (pathwayBuilders[id]) pathwayBuilders[id].call(this);
+    if(id==='lesson-lab')makeCourseModel.call(this,data);
+    else if (pathwayBuilders[id]) pathwayBuilders[id].call(this);
     else if (id==='thylakoid') makeThylakoid.call(this);
     else if (id==='molecules') this.makeMolecule(data);
     else if (id==='dna') this.makeDNA();
@@ -270,7 +278,7 @@ export class BiologyScene extends ModelBuilders {
       object.material=Array.isArray(object.material)?object.material.map(copy):copy(object.material);
     });
     const baseSize=baseBounds.getSize(new THREE.Vector3());
-    const view={id,key,root,content,normalized,ambient,features:[...features],baseBounds:{center:baseBounds.getCenter(new THREE.Vector3()),radius:Math.max(baseSize.x,baseSize.y,baseSize.z)/2||1},processBounds:{center,radius},labels:this.buildLabelLayer,annotations:this.annotations,movers:this.movers,flows:this.flows,processRig:this.processRig,materials:[...materialCopies.values()],opacity:1};
+    const view={id,key,root,content,normalized,ambient,features:[...features],baseBounds:{center:baseBounds.getCenter(new THREE.Vector3()),size:baseSize,radius:Math.max(baseSize.x,baseSize.y,baseSize.z)/2||1},processBounds:{center,radius,size},labels:this.buildLabelLayer,annotations:this.annotations,movers:this.movers,flows:this.flows,processRig:this.processRig,materials:[...materialCopies.values()],opacity:1};
     this.scene.add(root);this.views.set(key,view);
     for (const flow of view.flows) flow.visible=this.flowVisible;
     return view;

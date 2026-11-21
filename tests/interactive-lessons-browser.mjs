@@ -12,7 +12,7 @@ const conditions={membranes:['closed',/20 above · 4 below/],gradient:['leaky',/
 await mkdir('test-results/interactive-lessons',{recursive:true});
 try{
  const p=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});observe(p);
- for(const l of lessons){
+ for(const l of lessons.filter(l=>!l.topic)){
   await go(p,l.id);assert.equal(await p.locator('#lesson-panel').getAttribute('data-play'),'true');
   assert.equal(await p.locator('.lesson-diagram').count(),1);assert.equal(await p.locator('#scene canvas').count(),1);
   await p.locator('[data-lesson-at]').nth(2).click();

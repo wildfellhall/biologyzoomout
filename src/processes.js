@@ -1,3 +1,5 @@
+import {courseContent} from './course/content.js';
+import {labs,sampleLab} from './course/labs.js';
 import {replicationState,translationState,peptideState} from './reaction-state.js';
 const source=(page)=>page.startsWith('https:')?page:`https://openstax.org/books/biology-2e/pages/${page}`;
 const define=(name,models,seconds,steps,page,note)=>({name,models,seconds,steps,source:source(page),note});
@@ -69,6 +71,7 @@ export const processes={
   'A developing woodland changes shade and habitat structure.'
  ],'45-6-community-ecology','One authored 80-year secondary-succession scenario, not a forecast. Growth curves illustrate turnover; rates, species, and final communities vary with conditions.'),
 };
+for(const c of courseContent){const lab=labs[c.sim];processes[`topic-${c.topic}`]=define(lab.beats[0],['lesson-lab'],c.sim==='replication'?22:c.sim==='translation'?24:18,lab.beats,'https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf',lab.note);}
 export const processesFor=id=>Object.entries(processes).filter(([,p])=>p.models.includes(id)).map(([id,p])=>({id,...p}));
 // Match explanatory beats to the rig's binding, reaction and product events.
 export const phaseStarts={catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
@@ -115,6 +118,7 @@ export function diffusionPositions(t) {
 export function sampleProcess(id,progress,environment='favor-a',options={}) {
  const t=clamp(progress),process=processes[id];if(!process)return null;
  const phase=phaseAt(id,t),state={id,t,phase,caption:process.steps[phase],time:`${Math.round(t*process.seconds)} / ${process.seconds} s`,metrics:[]};
+ if(id.startsWith('topic-')){const c=courseContent.find(c=>c.topic===id.slice(6));return {...state,...sampleLab(c.sim,t,options.condition||'normal'),id};}
  if(id==='selection') {
   const exact=t*12,generation=Math.min(12,Math.floor(exact)),entry=selectionCache[environment][generation];
   Object.assign(state,entry,{cycle:exact-generation,series:selectionCache[environment]});

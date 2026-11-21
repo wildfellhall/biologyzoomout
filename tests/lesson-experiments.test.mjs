@@ -5,7 +5,7 @@ import {activities,loadExperiments,saveExperiments,experimentResult} from '../sr
 import {sampleProcess} from '../src/processes.js';
 
 test('Every lesson explanation has an animated model, linked diagram, question and runnable experiment',()=>{
- assert.equal(lessons.length,7);
+ assert.equal(lessons.length,67);
  for(const lesson of lessons){
   assert.ok(activities[lesson.id]);assert.ok(activities[lesson.id].options.length>=2);
   for(const step of lesson.steps.filter(s=>['explain','observe','experiment'].includes(s.type))){assert.ok(step.view.process);assert.ok(step.cues.length>=3);}

@@ -1,3 +1,4 @@
+import {courseActivity,courseResult,courseDiagram} from './course/activities.js';
 import {esc} from './node-detail.js';
 const option=(id,label)=>({id,label});
 export const activities={
@@ -9,6 +10,7 @@ export const activities={
  translation:{prompt:'Predict the amino-acid sequence and whether the product will be shorter.',options:[option('normal','Original message'),option('silent','GCU → GCC · synonymous'),option('missense','UUU → AAA · missense'),option('stop','UUU → UAA · early stop')],note:'An authored six-codon message using the standard genetic code. The resulting short peptide is a teaching example, not a whole functional protein.',check:{prompt:'A stop codon specifies…',answers:['An amino acid named Stop','A new reading frame','Termination through a release factor'],correct:2,feedback:'Stop codons are recognized by release factors. No stop amino acid is added to the chain.'}},
  polypeptide:{prompt:'Can a fourth residue join if the incoming tRNA is uncharged or transfer is blocked?',options:[option('normal','Charged tRNA · transfer active'),option('uncharged','Incoming tRNA uncharged'),option('blocked','Peptide transfer blocked')],note:'Reacting groups and three existing residues are enlarged. Ribosomal transfer uses activated tRNAs; it is not the free-amino-acid dehydration diagram.',check:{prompt:'Which end gains the incoming amino-acid residue?',answers:['The C-terminal end','The original N-terminal end','Either end with equal probability'],correct:0,feedback:'Peptide transfer adds a new residue at the C-terminal end. The original N terminus remains the N terminus.'}},
 };
+Object.assign(activities,courseActivity);
 const STORE='biology-zoomout-experiments-v1';
 export function loadExperiments(storage){
  const clean={};
@@ -19,6 +21,7 @@ export function loadExperiments(storage){
 }
 export function saveExperiments(storage,data){try{storage?.setItem(STORE,JSON.stringify(data));}catch{}}
 export function experimentResult(id,s){
+ if(id.startsWith('topic-'))return courseResult(id,s);
  if(id==='translation')return `${s.chain.join('–')} · ${s.length} residues${s.released?' · released':''}`;
  if(id==='replication')return `${s.leading} leading + ${s.lagging.length} lagging nucleotides; ${s.nicks} unsealed nicks`;
  if(id==='polypeptide')return `${s.residues} residues · ${s.bondCount} peptide bonds`;
@@ -30,6 +33,7 @@ export function experimentResult(id,s){
 // Inline SVG schematics share the animation's state, rather than playing an
 // unrelated decorative loop. Buttons below the diagram select the same moments.
 export function diagramSVG(id,s){
+ if(id.startsWith('topic-'))return courseDiagram(id.slice(6).replace('-','.'),s);
  const color='#557966',warm='#bd9c68',accent='#b95c43';
  const text=(x,y,value,fill='#273d32')=>`<text x="${x}" y="${y}" fill="${fill}">${esc(value)}</text>`;
  const line=(x,y,x2,y2,c=color,dash='')=>`<path d="M${x} ${y}L${x2} ${y2}" stroke="${c}" stroke-width="3" ${dash?'stroke-dasharray="5 4"':''}/>`;
