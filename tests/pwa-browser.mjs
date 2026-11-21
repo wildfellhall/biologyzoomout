@@ -1,3 +1,4 @@
+import {showLessonDiagram} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -93,6 +94,13 @@ try {
   assert.deepEqual(await savedAnswer(page), lessonProgress);
   await page.goto(base); await page.locator('#home-art[data-render="ready"]').waitFor();
   assert.equal(await page.locator('#home-page').isVisible(), true);
+  await page.goto(base+'#lessons');await page.locator('#lesson-dashboard').waitFor();
+  assert.equal(await page.locator('.unit-card').count(),8);
+  await page.locator('[data-course-unit="8"]').click();await page.reload();
+  await page.locator('#lesson-unit-heading').waitFor();assert.equal(await page.locator('.topic-lesson').count(),7);
+  await page.locator('#lesson-search').fill('replication');await page.locator('[data-lesson="topic-6-2"]').click();
+  assert.equal(await page.locator('#lesson-content').isVisible(),true);assert.equal(await page.locator('#lesson-live').isHidden(),true);
+  check('The lesson dashboard, unit deep links, search, and focused reading view work offline');
   for (const model of ['animal-cell', 'ecosystem', 'biosphere']) {
     await open(page, `#path=dna&organism=animal&at=${model}`);
     assert.equal(await page.locator('#scene').getAttribute('data-model'), model);
@@ -100,7 +108,7 @@ try {
     assert.equal(await page.locator('.webgl-fallback').count(), 0);
   }
   await open(page, '#lesson=gradient&step=2');
-  await page.locator('[data-lesson-at="0.75"]').click();
+  await showLessonDiagram(page);await page.locator('[data-lesson-at="0.75"]').click();
   assert.match(await page.locator('#lesson-cue-text').textContent(), /ADP and phosphate/);
   assert.equal(await page.evaluate(async () => (await (await fetch('/data/ontology.json')).json()).nodes.length), 234);
   for (const [id, condition, expected] of [['replication','ligase-off',/5 unsealed/],['translation','stop',/Met–Ala/],['polypeptide','blocked',/3 residues/]]) {

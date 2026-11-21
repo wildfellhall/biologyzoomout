@@ -1,3 +1,4 @@
+import {showLessonDiagram} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -19,7 +20,7 @@ try{
  await p.locator('[data-answer="up"]').click();assert.match(await p.locator('#lesson-feedback').textContent(),/larger starting concentration/);
  await p.locator('[data-answer="down"]').click();await next(p);
  assert.equal(await p.locator('#process-panel').getAttribute('data-playing'),'false');
- await p.locator('[data-lesson-at="0.9"]').click();assert.match(await p.locator('#lesson-cue-text').textContent(),/do not stop moving/);
+ await showLessonDiagram(p);await p.locator('[data-lesson-at="0.9"]').click();assert.match(await p.locator('#lesson-cue-text').textContent(),/do not stop moving/);
  await p.screenshot({path:'test-results/lessons/membrane-observation.png'});await next(p);await next(p);
  await p.locator('[data-answer="balanced"]').click();await next(p);
  assert.equal(await p.locator('#lesson-reveal').isDisabled(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);
@@ -30,27 +31,27 @@ try{
  check('Prediction feedback, recall gating, corrected first attempts, completion and reload/resume work');
  await p.locator('[data-finish="catalog"]').click();assert.match(await p.locator('#lesson-review-status').textContent(),/Next review/);
  await p.locator('#start-review').click();assert.equal(await p.locator('#lesson-feedback').isHidden(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);await p.locator('#lesson-exit').click();
- await p.evaluate(()=>window.__reviewDays=2);await p.locator('#learn-toggle').click();assert.match(await p.locator('#lesson-review-status').textContent(),/3 reviews ready/);await p.locator('#start-review').click();
+ await p.evaluate(()=>window.__reviewDays=2);await p.locator('#learn-toggle').click();assert.match(await p.locator('#lesson-review-status').textContent(),/3 review questions ready/);await p.locator('#start-review').click();
  await p.locator('[data-answer="down"]').click();await next(p);await p.locator('[data-answer="balanced"]').click();await next(p);
  await p.locator('#lesson-response').fill(explanation);await p.locator('#lesson-reveal').click();await p.locator('[data-rating="ready"]').click();await next(p);
- assert.equal(await p.locator('#lesson-heading').textContent(),'Review complete');await p.locator('[data-finish="catalog"]').click();assert.match(await p.locator('#lesson-review-status').textContent(),/Next review/);await p.locator('#lesson-catalog-close').click();
+ assert.equal(await p.locator('#lesson-heading').textContent(),'Review complete');await p.locator('[data-finish="catalog"]').click();assert.match(await p.locator('#lesson-review-status').textContent(),/Next review/);await p.locator('#dashboard-explore').click();
  check('Spaced reviews become available after a delay, hide prior answers and reschedule after retrieval');
  for(const [id,model,cue,pattern]of [['gradient','mitochondrion','0.75',/ADP and phosphate/],['light','chloroplast','0.5',/NADPH/]]){
-  await go(p,id,2);assert.equal(await p.locator('#scene').getAttribute('data-model'),model);await p.locator(`[data-lesson-at="${cue}"]`).click();assert.match(await p.locator('#lesson-cue-text').textContent(),pattern);await frame(p);await p.screenshot({path:`test-results/lessons/${id}.png`});
+  await go(p,id,2);assert.equal(await p.locator('#scene').getAttribute('data-model'),model);await showLessonDiagram(p);await p.locator(`[data-lesson-at="${cue}"]`).click();assert.match(await p.locator('#lesson-cue-text').textContent(),pattern);await frame(p);await p.screenshot({path:`test-results/lessons/${id}.png`});
  }
- await go(p,'selection',2);await p.locator('#lesson-environment').selectOption('neutral');await p.locator('[data-lesson-at="1"]').click();assert.match(await p.locator('#lesson-live-metrics').textContent(),/A allele: 35.0%/);
- await p.locator('#lesson-environment').selectOption('favor-A');await p.locator('[data-lesson-at="1"]').click();assert.doesNotMatch(await p.locator('#lesson-live-metrics').textContent(),/A allele: 35.0%/);await p.screenshot({path:'test-results/lessons/selection.png'});
- await p.locator('#lesson-skill').selectOption('APBIO-7.1-03');await p.locator('#node-dialog').waitFor();assert.match(await p.locator('#node-detail').textContent(),/Changing selection/);await p.locator('[aria-label="Close learning node"]').click();
+ await go(p,'selection',2);await showLessonDiagram(p);await p.locator('#lesson-environment').selectOption('neutral');await showLessonDiagram(p);await p.locator('[data-lesson-at="1"]').click();assert.match(await p.locator('#lesson-live-metrics').textContent(),/A allele: 35.0%/);
+ await p.locator('#lesson-environment').selectOption('favor-A');await showLessonDiagram(p);await p.locator('[data-lesson-at="1"]').click();assert.doesNotMatch(await p.locator('#lesson-live-metrics').textContent(),/A allele: 35.0%/);await p.screenshot({path:'test-results/lessons/selection.png'});
+ await p.locator('.lesson-references summary').click();await p.locator('#lesson-skill').selectOption('APBIO-7.1-03');await p.locator('#node-dialog').waitFor();assert.match(await p.locator('#node-detail').textContent(),/Changing selection/);await p.locator('[aria-label="Close learning node"]').click();
  await p.locator('#lesson-exit').click();assert.equal(await p.locator('.scale-dock').isVisible(),true);assert.equal(await p.locator('#process-panel').isVisible(),true);
  check('The original four lessons retain the detailed reactions, dynamic explanation, selection controls and original AP nodes');
  await p.close();
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});observe(m);
- await go(m,'gradient',2);await m.locator('[data-lesson-at="0.58"]').click();await frame(m);
+ await go(m,'gradient',2);await showLessonDiagram(m);await m.locator('[data-lesson-at="0.58"]').click();await frame(m);
  const geometry=await m.evaluate(()=>{const c=document.querySelector('#scene canvas').getBoundingClientRect(),p=document.querySelector('#lesson-panel').getBoundingClientRect();return {fits:document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight,canvas:c.height,separated:c.bottom<=p.top};});
  assert.equal(geometry.fits,true);assert.equal(geometry.separated,true);assert.ok(geometry.canvas>150);
  await m.screenshot({path:'test-results/lessons/mobile-observation.png'});await next(m);await next(m);await m.screenshot({path:'test-results/lessons/mobile-practice.png'});
  await m.locator('[data-answer="less"]').click();await next(m);await m.locator('#lesson-response').fill('The membrane retains the proton gradient, and ATP synthase couples the proton return to ATP production.');await m.locator('#lesson-reveal').click();await m.locator('[data-rating="again"]').click();assert.equal(await m.locator('#lesson-next').isEnabled(),true);
- await m.locator('#learn-toggle').click();await m.screenshot({path:'test-results/lessons/mobile-catalog.png'});await m.close();
+ await m.locator('#lesson-catalog-button').click();await m.screenshot({path:'test-results/lessons/mobile-catalog.png'});await m.close();
  check('Phone lessons keep the canvas clear of the lesson card; practice, recall and catalog remain usable');
  const a=await browser.newPage({viewport:{width:1000,height:850},reducedMotion:'no-preference'});observe(a);await go(a,'gradient',2);await a.waitForFunction(()=>+document.querySelector('#process-range').value>.002);
  await a.locator('#process-play').click();const stopped=await a.locator('#process-range').inputValue();await a.waitForTimeout(200);assert.equal(await a.locator('#process-range').inputValue(),stopped);await a.close();

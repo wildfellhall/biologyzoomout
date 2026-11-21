@@ -29,12 +29,12 @@ try {
   await page.keyboard.press('Space'); await page.locator('#home-art[data-motion="animated"]').waitFor();
   check('Home has a moving 3D helix and exactly two visible buttons; explorer controls stay hidden and inert');
 
-  await page.locator('#home-lessons').click(); await page.locator('#lesson-dialog[open]').waitFor();
-  assert.equal(await page.locator('.topic-lesson').count(), 7);
+  await page.locator('#home-lessons').click(); await page.locator('#lesson-dashboard').waitFor();
+  assert.equal(await page.locator('.unit-card').count(), 8);assert.match(page.url(),/#lessons$/);
   const still = await page.locator('#home-art').getAttribute('data-rotation');
   await page.waitForTimeout(180); assert.equal(await page.locator('#home-art').getAttribute('data-rotation'), still);
-  await page.keyboard.press('Escape'); assert.equal(await page.locator('#home-page').isVisible(), true);
-  await page.locator('#home-lessons').click(); await page.locator('#lesson-search').fill('Crossing a membrane'); await page.locator('[data-lesson="membranes"]').click();
+  await page.goBack(); await page.locator('#home-page').waitFor();await page.locator('#home-lessons').click();
+  await page.locator('#lesson-search').fill('Crossing a membrane'); await page.locator('[data-lesson="membranes"]').click();
   await page.locator('#lesson-panel').waitFor();
   assert.equal(await page.locator('#home-page').isHidden(), true);
   assert.equal(await page.locator('#scene').getAttribute('data-model'), 'membrane');
@@ -42,11 +42,11 @@ try {
   await page.locator('#lesson-next').click(); await page.locator('[data-answer="down"]').click();
   const answer = await page.evaluate(() => JSON.parse(localStorage.getItem('biology-zoomout-lessons-v1')).lessons.membranes.answers.predict.choice);
   assert.equal(answer, 'down');
-  await page.goBack(); await page.locator('#home-page').waitFor();
-  await page.locator('#home-lessons').click(); await page.locator('#lesson-search').fill('Crossing a membrane'); await page.locator('[data-lesson="membranes"]').click();
+  await page.goBack(); await page.locator('#lesson-dashboard').waitFor();
+  await page.locator('#lesson-search').fill('Crossing a membrane'); await page.locator('[data-lesson="membranes"]').click();
   assert.equal(await page.locator('#lesson-counter').textContent(), '2 / 6');
   await page.locator('#home').click(); await page.locator('#home-page').waitFor();
-  check('Lessons opens the library, starts and resumes saved practice, and browser Back or the brand returns home');
+  check('Lessons opens a dashboard, starts and resumes saved practice, and Back restores the dashboard');
 
   await page.locator('#home-explore').click(); await page.locator('#scene[data-model="dna"]').waitFor();
   assert.equal(await page.locator('#app').evaluate(el => el.inert), false);
@@ -77,7 +77,7 @@ try {
     await mobile.screenshot({path:`test-results/home/${size.width}x${size.height}.png`});
   }
   await mobile.setViewportSize({width:390,height:844});
-  await mobile.locator('#home-lessons').tap(); await mobile.locator('.lesson-card').first().tap();
+  await mobile.locator('#home-lessons').tap();await mobile.locator('[data-course-unit="1"]').tap(); await mobile.locator('.lesson-card').first().tap();
   await mobile.locator('#lesson-panel').waitFor();
   assert.equal(await mobile.locator('#home-page').isHidden(), true);
   await mobile.close();
@@ -90,7 +90,7 @@ try {
   });
   await fallback.goto(base); await fallback.locator('#home-art[data-render="unavailable"]').waitFor();
   assert.equal(await fallback.locator('.home-fallback').isVisible(), true);
-  await fallback.locator('#home-lessons').click(); await fallback.locator('.lesson-card').first().click();
+  await fallback.locator('#home-lessons').click();await fallback.locator('[data-course-unit="1"]').click(); await fallback.locator('.lesson-card').first().click();
   await fallback.locator('#lesson-panel').waitFor();
   await fallback.locator('#home').click(); await fallback.locator('#home-explore').click();
   await fallback.locator('#nodes-toggle').click(); await fallback.locator('#all-scope').click();

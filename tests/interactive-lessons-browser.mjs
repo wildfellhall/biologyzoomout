@@ -1,3 +1,4 @@
+import {showLessonDiagram} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -15,13 +16,13 @@ try{
  for(const l of lessons.filter(l=>!l.topic)){
   await go(p,l.id);assert.equal(await p.locator('#lesson-panel').getAttribute('data-play'),'true');
   assert.equal(await p.locator('.lesson-diagram').count(),1);assert.equal(await p.locator('#scene canvas').count(),1);
-  await p.locator('[data-lesson-at]').nth(2).click();
+  await showLessonDiagram(p);await p.locator('[data-lesson-at]').nth(2).click();
   assert.ok(Number(await p.locator('#process-range').inputValue())>0);
   assert.ok((await p.locator('#lesson-cue-text').textContent()).length>30);
   if(l.id==='translation'){
    await p.locator('#process-range').evaluate(el=>{el.value='.29';el.dispatchEvent(new Event('input',{bubbles:true}));});
    assert.match(await p.locator('#lesson-cue-text').textContent(),/advances by one codon/);
-   await p.locator('[data-lesson-at="0.25"]').click();
+   await showLessonDiagram(p);await p.locator('[data-lesson-at="0.25"]').click();
   }
   if(['replication','translation','polypeptide'].includes(l.id))await p.screenshot({path:`test-results/interactive-lessons/${l.id}.png`});
   await p.locator('#check-tab').click();assert.equal(await p.locator('#quick-feedback').isHidden(),true);
@@ -59,7 +60,7 @@ try{
  await go(p,'translation',5);assert.equal(await p.locator('#lesson-live').isHidden(),true);assert.equal(await p.locator('.lesson-rubric').count(),0);
  await p.close();check('Predictions and comparisons persist; assessment and recall answers stay hidden until an attempt');
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});observe(m);
- await go(m,'replication');await m.locator('[data-lesson-at]').nth(2).tap();await m.screenshot({path:'test-results/interactive-lessons/phone-diagram.png'});
+ await go(m,'replication');await showLessonDiagram(m);await m.locator('[data-lesson-at]').nth(2).tap();await m.screenshot({path:'test-results/interactive-lessons/phone-diagram.png'});
  await m.locator('#experiment-tab').tap();await m.locator('#experiment-condition').selectOption('helicase-off');await m.locator('#experiment-run').tap();
  assert.match(await m.locator('#experiment-status').textContent(),/0 leading \+ 0 lagging/);
  await m.screenshot({path:'test-results/interactive-lessons/phone-experiment.png'});

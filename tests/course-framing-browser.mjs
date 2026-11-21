@@ -1,3 +1,4 @@
+import {showLessonDiagram} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -9,7 +10,7 @@ try{
   const p=await browser.newPage({viewport,reducedMotion:'reduce'});p.on('pageerror',e=>errors.push(e.message));
   for(const topic of ['1-1','1-5','1-6','5-1','6-2','6-4']){
    await p.goto(`${base}#lesson=topic-${topic}&step=0`);
-   await p.locator('#lesson-panel').waitFor();await p.locator('[data-lesson-at]').nth(1).click();
+   await p.locator('#lesson-panel').waitFor();await showLessonDiagram(p);await p.locator('[data-lesson-at]').nth(1).click();
    await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
    if(topic==='6-2'){
     const label=p.locator('.view-labels:not([hidden]) .process-label').filter({hasText:'Helicase'});
@@ -17,7 +18,7 @@ try{
     const labelBounds=await label.boundingBox(),canvas=await p.locator('#scene canvas').boundingBox();
     assert.ok(labelBounds.y>=canvas.y&&labelBounds.y+labelBounds.height<=canvas.y+canvas.height);
    }
-   await p.locator('[data-lesson-at]').nth(2).click();
+   await showLessonDiagram(p);await p.locator('[data-lesson-at]').nth(2).click();
    await p.screenshot({path:`test-results/course-framing/${topic}-${viewport.width}.png`});
    assert.equal(await p.locator('.webgl-fallback').count(),0);
    checks.push(`${topic}: model fits ${viewport.width}px viewport`);
