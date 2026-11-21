@@ -1,4 +1,5 @@
-const source=(page)=>`https://openstax.org/books/biology-2e/pages/${page}`;
+import {replicationState,translationState,peptideState} from './reaction-state.js';
+const source=(page)=>page.startsWith('https:')?page:`https://openstax.org/books/biology-2e/pages/${page}`;
 const define=(name,models,seconds,steps,page,note)=>({name,models,seconds,steps,source:source(page),note});
 export const processes={
  catalysis:define('Enzyme-catalyzed hydrolysis',['enzyme'],16,[
@@ -12,7 +13,7 @@ export const processes={
   'Complementary nucleotides join each exposed template.',
   'New strands extend by addition at their 3′ ends.',
   'Each completed daughter duplex contains one parental and one new strand.'
- ],'14-3-basics-of-dna-replication','Simplified semiconservative replication. Gold marks parental strands; teal marks new strands. Polymerases, primers, and lagging-strand fragments are omitted; displayed timing is not a molecular rate.'),
+ ],'14-4-dna-replication-in-prokaryotes','One stretched replication fork. Gold is parental DNA, teal is new DNA, and pink marks primers before replacement. Both new strands grow 5′ → 3′; lagging-strand fragments grow away from the advancing fork. Enzyme shapes and rates are illustrative. Topoisomerase, proofreading and the second fork are omitted.'),
  diffusion:define('Facilitated diffusion',['membrane'],18,[
   'More solute particles start above the membrane.',
   'A selective channel permits solute to cross in either direction.',
@@ -37,12 +38,18 @@ export const processes={
   'The Golgi modifies and sorts cargo toward its trans face.',
   'A secretory vesicle fuses with the plasma membrane and releases its cargo.'
  ],'4-4-the-endomembrane-system-and-proteins','Representative secretory route. Compartment colors distinguish ER, Golgi, and plasma membrane; transport is condensed in time.'),
- translation:define('Translation',['ribosome','free-ribosome'],22,[
-  'The ribosome binds mRNA; a charged tRNA pairs with a codon.',
-  'A second tRNA brings the next amino acid.',
-  'Peptide-bond formation transfers the growing chain.',
-  'The ribosome advances along mRNA, extending the polypeptide.'
- ],'15-5-ribosomes-and-protein-synthesis','One simplified elongation sequence; shapes represent subunits and molecules, not individual atoms. Initiation and termination factors are omitted.'),
+ translation:define('Translation',['ribosome','free-ribosome'],24,[
+  'An initiator tRNA positions methionine at the start codon.',
+  'A charged tRNA matches the next codon in the A site.',
+  'A peptide bond transfers the chain from the P-site tRNA to the A-site amino acid.',
+  'Translocation repeats until a stop codon recruits a release factor.'
+ ],'15-5-ribosomes-and-protein-synthesis','An authored six-codon message. The 3D view follows nearby codons; the lesson diagram shows the full message. Subunits are opened to expose tRNA traffic and the growing N → C chain. Color identifies residues, not atoms. Factors, energy consumption and timing are simplified; the tiny peptide is not a complete functional protein.'),
+ peptide:define('Peptide-bond formation',['polypeptide'],18,[
+  'The growing chain is attached to a P-site tRNA; an A-site tRNA carries the next amino acid.',
+  'The ribosome brings the incoming amino group near the chain’s carbonyl carbon.',
+  'A new C–N peptide bond forms as the chain is transferred off its old tRNA.',
+  'The longer chain remains attached to the A-site tRNA, ready for translocation.'
+ ],'https://reactome.org/content/detail/R-HSA-5389857','Schematic ribosomal peptidyl transfer, not free-amino-acid dehydration. The activated peptidyl-tRNA ester is replaced by a C–N bond; no water is released by this transfer. Only the reacting groups are atom-colored (C gray, O red, N blue); side chains and tRNA are simplified.'),
  selection:define('Natural selection',['population','rabbit-population'],32,[
   'Inherited variation produces three genotypes at one locus.',
   'Genotype-dependent survival changes the reproductive gene pool.',
@@ -64,7 +71,7 @@ export const processes={
 };
 export const processesFor=id=>Object.entries(processes).filter(([,p])=>p.models.includes(id)).map(([id,p])=>({id,...p}));
 // Match explanatory beats to the rig's binding, reaction and product events.
-export const phaseStarts={catalysis:[0,.28,.48,.76],replication:[0,.28,.46,.85],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.15,.42,.72]};
+export const phaseStarts={catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
 export function phaseAt(id,t){const stops=phaseStarts[id]||[0,.25,.5,.75];return Math.max(0,stops.findLastIndex(start=>t>=start));}
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
 export const ease=n=>{n=clamp(n);return n*n*(3-2*n);};
@@ -105,7 +112,7 @@ export function diffusionPositions(t) {
   return f<.3?blend([x,y,z],[0,from*1.1,0],f/.3):f<.7?[0,from*(1.1-(f-.3)/.4*2.2),0]:blend([0,-from*1.1,0],[x,-y,z],(f-.7)/.3);
  });
 }
-export function sampleProcess(id,progress,environment='favor-a') {
+export function sampleProcess(id,progress,environment='favor-a',options={}) {
  const t=clamp(progress),process=processes[id];if(!process)return null;
  const phase=phaseAt(id,t),state={id,t,phase,caption:process.steps[phase],time:`${Math.round(t*process.seconds)} / ${process.seconds} s`,metrics:[]};
  if(id==='selection') {
@@ -123,8 +130,33 @@ export function sampleProcess(id,progress,environment='favor-a') {
  } else if(id==='succession') {
   state.years=t*80;state.grass=interval(t,0,.18)*(1-.75*interval(t,.45,1));state.shrubs=interval(t,.15,.5)*(1-.5*interval(t,.65,1));state.trees=interval(t,.25,1);state.time=`Year ${Math.round(state.years)} / 80`;
  } else if(id==='diffusion') {
-  state.positions=diffusionPositions(t);state.top=state.positions.filter(p=>p[1]>=0).length;state.bottom=24-state.top;
+  state.condition=options.condition||'normal';
+  state.positions=diffusionPositions(options.condition==='closed'?0:t);state.top=state.positions.filter(p=>p[1]>=0).length;state.bottom=24-state.top;
   state.metrics=[['Above',String(state.top)],['Below',String(state.bottom)]];
+  if(options.condition==='closed')state.caption='The channel is closed: this solute does not cross the lipid core in the model.';
+ } else if(id==='replication') {
+  Object.assign(state,replicationState(t,options));
+  state.metrics=[['Leading',`${state.leading}/28`],['Lagging',`${state.lagging.length}/28`],['Unsealed nicks',String(state.nicks)]];
+  if(state.condition==='helicase-off')state.caption='Without unwinding, the templates are not exposed and synthesis cannot advance.';
+  else if(state.condition==='polymerase-off')state.caption='The model permits unwinding, but DNA polymerization is blocked. Real fork activities are coordinated.';
+  else if(state.nicks)state.caption='The fragments have been copied, but the remaining nicks still require ligase.';
+ } else if(id==='translation') {
+  Object.assign(state,translationState(t,options));
+  state.metrics=[['Codon',state.codons[state.current]],['Chain',state.chain.join('–')||'Not started']];
+  state.caption=state.stage==='termination'?'A stop codon recruits a release factor; it does not encode an amino acid.':state.stage==='initiation'?process.steps[0]:state.stage==='peptide transfer'?process.steps[2]:state.stage==='translocation'?'The ribosome advances by one codon; the chain-bearing tRNA moves from A to P.':process.steps[1];
+ } else if(id==='peptide') {
+  Object.assign(state,peptideState(t,options));
+  state.metrics=[['Residues',String(state.residues)],['Peptide bonds',String(state.bondCount)]];
+  if(!state.charged)state.caption='An uncharged tRNA supplies no amino acid, so the chain cannot be extended.';
+  else if(state.condition==='blocked')state.caption='With peptide transfer blocked, docking alone cannot form the new bond.';
+ } else if(id==='chemiosmosis'||id==='light') {
+  state.condition=options.condition||'normal';
+  state.energyInput=state.condition==='dark'?0:1;
+  state.coupling=state.condition==='leaky'?.2:1;
+  state.atpYield=100*interval(t,.74,1)*state.energyInput*state.coupling;
+  state.metrics=[['ATP index',state.atpYield.toFixed(0)],['Scale','normal endpoint = 100']];
+  if(state.condition==='dark')state.caption='Starting without a stored gradient, no light-driven electron flow means no new ATP or NADPH in this model.';
+  else if(state.condition==='leaky')state.caption='A proton bypass dissipates most of the gradient; less H⁺ return is coupled through ATP synthase.';
  }
  return state;
 }

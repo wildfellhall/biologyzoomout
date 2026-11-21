@@ -6,7 +6,7 @@ import { structureInfo, cellParts, childrenOf } from '../src/structures.js';
 import { modelInfo } from '../src/content.js';
 import { pathwayInfo } from '../src/pathways.js';
 import * as THREE from 'three';
-import { detailedBuilders } from '../src/detailed-models.js';
+import {replicationHelixPoint,replicationState} from '../src/reaction-state.js';
 
 test('Selection preserves allele and genotype frequencies; environmental reversal changes the direction',()=>{
  for(const environment of ['favor-A','favor-a','neutral']){
@@ -57,18 +57,15 @@ test('All inspectable structures and animation models resolve without changing o
  assert.ok(!cellParts['animal-cell'].includes('chloroplast'));
 });
 
-test('DNA geometry is right-handed, and new strands extend in opposite directions',()=>{
- const model={root:new THREE.Group(),annotation(){}};
- detailedBuilders.makeDNA.call(model);
- const [parentA,parentB,newA,newB]=model.root.children;
- const first=parentA.children[0].position.clone(),next=parentA.children[2].position.clone();
- assert.ok(next.y>first.y);
- first.y=next.y=0;
- assert.ok(new THREE.Vector3().crossVectors(first,next).y>0,'right-handed turn around the rising y axis');
- model.processRig.update(sampleProcess('replication',.45));
- assert.equal(newA.children[0].visible,true);assert.equal(newA.children[54].visible,false);
- assert.equal(newB.children[0].visible,false);assert.equal(newB.children[54].visible,true);
- model.processRig.update(sampleProcess('replication',1));
- assert.ok(parentA.position.x<0&&parentB.position.x>0);
- for(const strand of [newA,newB])assert.ok(strand.children.every(c=>c.visible)&&strand.children.at(-1).children.every(c=>c.visible));
+test('DNA is right-handed; synthesis follows the fork while fragments extend oppositely',()=>{
+ const first=new THREE.Vector3(...replicationHelixPoint(0,0)),next=new THREE.Vector3(...replicationHelixPoint(1,0));
+ assert.ok(next.y>first.y);first.y=next.y=0;
+ assert.ok(new THREE.Vector3().crossVectors(first,next).y>0);
+ for(let i=0;i<=100;i++){
+  const s=replicationState(i/100);
+  assert.ok(s.leading<=s.unwound);
+  assert.ok(s.lagging.every(index=>index<s.unwound));
+  for(const f of s.fragments)assert.ok(f.indices.every((index,j)=>!j||index<f.indices[j-1]));
+ }
+ const complete=replicationState(1);assert.equal(complete.leading,28);assert.equal(complete.lagging.length,28);assert.equal(complete.sealed,true);
 });

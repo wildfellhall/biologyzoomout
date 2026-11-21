@@ -1,3 +1,4 @@
+import {makeReplication,makeTranslation} from './molecular-reactions.js';
 import * as THREE from 'three';
 import { ball, mesh, rod, path, organic, rim, sheet, surface, group, tag, particles, noise, sphere } from './surfaces.js';
 import { interval, ease } from './processes.js';
@@ -173,17 +174,18 @@ function energyRig(parent,light=false) {
  ball(oxygen,[-.08,0,0],.085,'#d47767','atom');ball(oxygen,[.08,0,0],.085,'#d47767','atom');
  ball(nadph,[0,0,0],.14,'#7cbeb3','atom');ball(nadph,[.15,0,0],.075,'#d6bd7a','atom');
  return {update(s){
-  g.visible=!!s;if(!s)return;const t=s.t;
+  g.visible=!!s;if(!s)return;const t=s.energyInput===0?0:s.t;
   for(let i=0;i<proton.items.length;i++) {
    const p=proton.items[i],x=-2.1+(i%6)*.65,initial=[x,-.55-(i%2)*.25,Math.sin(i)*.3],outside=[x,.65+(i%2)*.2,Math.sin(i)*.3];
    const pumped=interval(t,.06+i*.018,.25+i*.018);let pos=point(initial,outside,pumped);
    if(t>.58){const cycle=interval(t,.58+i*.017,.78+i*.017);pos=cycle<.5?point(outside,[1.85,.5,0],cycle*2):point([1.85,.5,0],[1.85,-.9,0],(cycle-.5)*2);}
+   if(s.condition==='leaky'&&i<10&&t>.58)pos=point(outside,[x,-.9,Math.sin(i)*.3],interval(t,.58,.84));
    p.position.set(...pos);
   }
-  electron.items.forEach((p,i)=>{p.visible=t<.6;p.position.set(-1.9+((t*3+i*.24)%1)*3.8,.18,.3);});
-  photon.items.forEach((p,i)=>{p.visible=light&&t<.64;const v=(t*4+i*.5)%1;p.position.set(i? .7:-1.7,1.8-v*1.8,0);});
-  atp.userData.rotor.rotation.y=interval(t,.58,1)*Math.PI*10;
-  product.visible=t>.74;product.position.set(1.85+interval(t,.74,1)*.6,-.95,0);
+  electron.items.forEach((p,i)=>{p.visible=t<.6&&s.energyInput!==0;p.position.set(-1.9+((t*3+i*.24)%1)*3.8,.18,.3);});
+  photon.items.forEach((p,i)=>{p.visible=light&&t<.64&&s.energyInput!==0;const v=(t*4+i*.5)%1;p.position.set(i? .7:-1.7,1.8-v*1.8,0);});
+  atp.userData.rotor.rotation.y=interval(t,.58,1)*Math.PI*10*(s.coupling??1);
+  product.visible=t>.74;product.scale.setScalar(.16);product.position.set(1.85+interval(t,.74,1)*.6,-.95,0);
   oxygen.visible=light&&t>.08;oxygen.position.set(-1.85-interval(t,.08,.35)*.35,.8+interval(t,.08,.35)*.3,0);
   nadph.visible=light&&t>.5;nadph.position.set(.7,-.65-interval(t,.5,.78)*.3,0);
  }};
@@ -215,16 +217,16 @@ export const detailedBuilders={
   this.annotation(light?'Thylakoid lumen · H⁺':'Intermembrane space · H⁺',[0,-.83,1.2],{processOnly:true});
   if(light){
    this.annotation('Stroma',[-1.1,-2.65,1.2],{processOnly:true});
-   this.annotation('O₂',[-1.9,-.7,1.2],{processOnly:true,after:.08});
-   this.annotation('NADPH',[.6,-2.65,1.2],{processOnly:true,after:.5});
-   this.annotation('ATP',[1.9,-2.65,1.2],{processOnly:true,after:.74});
+   this.annotation('O₂',[-1.9,-.7,1.2],{processOnly:true,after:.08,visibleWhen:s=>s?.energyInput>0});
+   this.annotation('NADPH',[.6,-2.65,1.2],{processOnly:true,after:.5,visibleWhen:s=>s?.energyInput>0});
+   this.annotation('ATP',[1.9,-2.65,1.2],{processOnly:true,after:.74,visibleWhen:s=>s?.energyInput>0});
   }else this.annotation('Matrix · ADP + Pᵢ → ATP',[.8,-2.65,1.2],{processOnly:true});
  },
  makeStructure(id) {
   if(id==='nucleus')nucleus(this.root);
   else if(id==='rough-er'||id==='smooth-er'){er(this.root,id==='rough-er');}
   else if(id==='golgi'){golgi(this.root);}
-  else if(id==='ribosome'){ribosome(this.root);this.makeTranslationRig();}
+  else if(id==='ribosome'){const body=ribosome(this.root);this.makeTranslationRig(body);}
   else if(['lysosome','peroxisome','vesicle'].includes(id)){vesicle(this.root,id);}
   else if(id==='centrosome')centrosome(this.root);
   else if(id==='cytoskeleton'){cytoskeleton(this.root);microtubuleNetwork(this.root);}
@@ -237,12 +239,7 @@ export const detailedBuilders={
   else if(id==='enzyme')this.makeEnzyme();
   else if(id==='leaf')this.makeLeaf();
  },
- makeTranslationRig() {
-  const rig=group(this.root),trnas=[];
-  for(let i=0;i<2;i++){const t=group(rig);path(t,[[0,-.1,0],[0,.45,0],[-.22,.68,0],[0,.9,0],[.22,.68,0],[0,.45,0],[.3,.3,0]],.045,i?'#83bbab':'#ccbe7a');ball(t,[0,1,0],.11,i?'#d2a18e':'#88bcb3');trnas.push(t);}
-  const chain=group(rig);for(let i=0;i<8;i++)ball(chain,[.1*Math.sin(i*2),.7+i*.16,.56],.09,i%2?'#d2a18e':'#88bcb3');
-  rig.visible=false;this.processRig={update(s){rig.visible=!!s;if(!s)return;trnas[0].position.set(-.3,-.12,.8);trnas[1].position.set(lerp(1.9,.3,interval(s.t,.15,.48)),-.1,.8);trnas[0].position.x-=interval(s.t,.72,1)*1.6;chain.children.forEach((b,i)=>b.visible=i<2+Math.floor(interval(s.t,.42,1)*6));}};
- },
+ makeTranslationRig:makeTranslation,
  makeEnzyme() {
   const enzyme=group(this.root);
   for(let i=0;i<18;i++){const a=.55+i/17*(TAU-1.1);organic(enzyme,[Math.cos(a)*1.3,Math.sin(a)*1.15,Math.sin(i*2.4)*.22],[.48,.44,.52],i%3?'#688a9c':'#819aa4',{roughness:.16});}
@@ -270,27 +267,7 @@ export const detailedBuilders={
   this.processRig={update(s){dots.group.visible=!!s;if(!s)return;dots.items.forEach((p,i)=>p.position.set(...s.positions[i]));}};
   this.annotation('Channel',[.55,.95,0],'APBIO-2.6-01');this.annotation('Hydrophobic tails',[-2,0,.8],'APBIO-2.4-01');
  },
- makeDNA() {
-  const originals=[group(this.root),group(this.root)],newStrands=[group(this.root),group(this.root)];
-  const basePositions=[];
-  for(let side=0;side<2;side++) {
-   const pts=[];
-   for(let i=0;i<28;i++){const a=i*.6+side*Math.PI,p=[Math.cos(a)*.85,(i-13.5)*.22,-Math.sin(a)*.85];pts.push(p);ball(originals[side],p,.09,'#c5a16b','atom');const mid=[0,p[1],0];rod(originals[side],p,mid,.055,i%3?'#8caead':'#b68fa9','atom');
-    const q=[-p[0],p[1],-p[2]];ball(newStrands[side],q,.09,'#64b4ae','atom');rod(newStrands[side],q,mid,.055,i%3?'#a4bdbb':'#c8a9bb','atom');
-   }
-   path(originals[side],pts,.07,'#d7b276','atom');
-   const backbone=group(newStrands[side]);
-   for(let i=0;i<pts.length-1;i++)path(backbone,pts.slice(Math.max(0,i-1),Math.min(pts.length,i+3)).map(p=>[-p[0],p[1],-p[2]]),.07,'#64b4ae','atom');
-   basePositions.push(pts);
-  }
-  this.processRig={update(s){const t=s?.t||0,sep=interval(t,.02,.6)*1.25;originals[0].position.x=-sep;originals[1].position.x=sep;newStrands.forEach((g,i)=>{g.position.x=i?sep:-sep;g.visible=!!s&&t>.28;const n=Math.floor(interval(t,.28,.85)*28);g.children.forEach((o,j)=>{
-   if(j<56)o.visible=i===0?Math.floor(j/2)<n:Math.floor(j/2)>=28-n;
-   else {o.visible=true;o.children.forEach((segment,k)=>segment.visible=n===28||(i===0?k+2<n:k-1>=28-n));}
-  });});}};
-  this.annotation('New 5′',[-1.25,-3.25,0],{processOnly:true});this.annotation('New 3′',[-1.25,3.25,0],{processOnly:true});
-  this.annotation('New 3′',[1.25,-3.25,0],{processOnly:true});this.annotation('New 5′',[1.25,3.25,0],{processOnly:true});
-  this.annotation('Parental strand',[.85,1.6,0],'APBIO-1.6-01');this.annotation('Complementary bases',[0,-1.5,0],'APBIO-1.6-02');
- },
+ makeDNA:makeReplication,
  makeProtein(protein) {
   if(!protein)return;const points=protein.atoms;const center=new THREE.Box3().setFromPoints(points.map(a=>new THREE.Vector3(a.x,a.y,a.z))).getCenter(new THREE.Vector3());
   for(const a of points){const colors={C:'#879b98',N:'#728fae',O:'#ba8077',S:'#c4b36b'},radii={C:1.7,N:1.55,O:1.52,S:1.8};const atom=ball(this.root,[(a.x-center.x)*.18,(a.y-center.y)*.18,(a.z-center.z)*.18],(radii[a.element]||1.5)*.18,colors[a.element]||'#a8aaa0','atom');atom.userData={atom:a,element:a.element};}

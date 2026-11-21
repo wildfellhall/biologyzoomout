@@ -103,6 +103,20 @@ try {
   await page.locator('[data-lesson-at="0.75"]').click();
   assert.match(await page.locator('#lesson-cue-text').textContent(), /ADP and phosphate/);
   assert.equal(await page.evaluate(async () => (await (await fetch('/data/ontology.json')).json()).nodes.length), 234);
+  for (const [id, condition, expected] of [['replication','ligase-off',/5 unsealed/],['translation','stop',/Met–Ala/],['polypeptide','blocked',/3 residues/]]) {
+    await open(page, `#lesson=${id}&step=0`);
+    await page.locator('#experiment-tab').click();
+    await page.locator('#experiment-condition').selectOption(condition);
+    await page.locator('#experiment-prediction').fill('This blocked step will change the product.');
+    await page.locator('#experiment-run').click();
+    assert.match(await page.locator('#experiment-status').textContent(), expected);
+    assert.equal(await page.locator('#scene canvas').count(), 1);
+  }
+  await page.reload(); await page.locator('#experiment-tab').click();
+  assert.equal(await page.locator('#experiment-prediction').inputValue(), 'This blocked step will change the product.');
+  assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
+  check('Replication, translation, and peptide experiments run offline and preserve predictions and results');
+
   await page.locator('#install-toggle').click();
   await ready(page);
   assert.match(await page.locator('#offline-title').textContent(), /ready.*offline|offline.*ready/i);
@@ -165,7 +179,7 @@ try {
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   await page.waitForFunction(() => document.querySelector('#app-update').hidden === false, null, {timeout:45000});
   assert.equal((await workerStatus(page)).version, build.version);
-  assert.match(page.url(), /lesson=gradient/);
+  assert.match(page.url(), /lesson=polypeptide/);
   await page.close();
   const reopened = await context.newPage(); await open(reopened); await ready(reopened);
   assert.equal((await workerStatus(reopened)).version, 'verified-update');

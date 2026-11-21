@@ -13,7 +13,7 @@ await fs.mkdir('test-results/lessons',{recursive:true});
 try{
  const p=await browser.newPage({viewport:{width:1440,height:960},reducedMotion:'reduce'});observe(p);
  await p.addInitScript(()=>{const original=Date.now;Date.now=()=>original()+(window.__reviewDays||0)*86400000;});
- await go(p,'membranes');assert.equal(await p.locator('#scene').getAttribute('data-model'),'phospholipid');await next(p);
+ await go(p,'membranes');assert.equal(await p.locator('#scene').getAttribute('data-model'),'membrane');await next(p);
  assert.equal(await p.locator('#lesson-next').isDisabled(),true);
  await p.keyboard.press('ArrowRight');assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 6');
  await p.locator('[data-answer="up"]').click();assert.match(await p.locator('#lesson-feedback').textContent(),/larger starting concentration/);
@@ -42,7 +42,7 @@ try{
  await p.locator('#lesson-environment').selectOption('favor-A');await p.locator('[data-lesson-at="1"]').click();assert.doesNotMatch(await p.locator('#lesson-live-metrics').textContent(),/A allele: 35.0%/);await p.screenshot({path:'test-results/lessons/selection.png'});
  await p.locator('#lesson-skill').selectOption('APBIO-7.1-03');await p.locator('#node-dialog').waitFor();assert.match(await p.locator('#node-detail').textContent(),/Changing selection/);await p.locator('[aria-label="Close learning node"]').click();
  await p.locator('#lesson-exit').click();assert.equal(await p.locator('.scale-dock').isVisible(),true);assert.equal(await p.locator('#process-panel').isVisible(),true);
- check('All four lessons retain the detailed reactions, dynamic explanation, selection controls and original AP nodes');
+ check('The original four lessons retain the detailed reactions, dynamic explanation, selection controls and original AP nodes');
  await p.close();
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});observe(m);
  await go(m,'gradient',2);await m.locator('[data-lesson-at="0.58"]').click();await frame(m);

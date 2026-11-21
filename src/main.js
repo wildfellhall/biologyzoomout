@@ -519,11 +519,17 @@ try {
       if(view.autoplay&&state.autoplay&&!state.animationPaused&&!scene.reducedMotion)scene.playProcess(true);
     },
     canAutoplay:()=>state.autoplay&&!scene.reducedMotion,
-    snapshot:()=>sampleProcess(scene.process,scene.processProgress,scene.environment),
+    snapshot:()=>sampleProcess(scene.process,scene.processProgress,scene.environment,scene.experimentOptions),
     nodeLabel:id=>nodeMap.get(id)?.label||id,openNode,
     closeOverlays(){closeFieldNote();if(state.drawer)toggleBrowser(false);$('#process-details').hidden=true;$('#process-details-toggle').setAttribute('aria-expanded','false');$('#picked-atom').hidden=true;},
     onChange(){updateHash();$('#learn-toggle').classList.toggle('active',!!lessonUI?.active);},
-    onExit(){scene.setPaused(state.paused);$('#learn-toggle').classList.remove('active');},
+    onExit(){
+      // Conditions available only in the lesson must not silently persist in Explore.
+      const at=scene.processProgress;
+      if(Object.keys(scene.experimentOptions||{}).length){scene.setExperiment();scene.seekProcess(at);}
+      $('#selection-environment').value=scene.environment;
+      scene.setPaused(state.paused);$('#learn-toggle').classList.remove('active');
+    },
   });
   $('#learn-toggle').onclick=()=>lessonUI.openCatalog();
   // The catalog can open above both the home page and the explorer.

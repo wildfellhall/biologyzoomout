@@ -116,12 +116,14 @@ export class BiologyScene extends ModelBuilders {
   }
   clearHover(){if(this.hovered?.material.emissive&&this.hoverEmissive)this.hovered.material.emissive.copy(this.hoverEmissive);this.hovered=null;if(this.hoverLabel)this.hoverLabel.hidden=true;if(this.renderer)this.renderer.domElement.style.cursor='grab';}
   focus(definition){this.clearHover();this.focusDefinition=definition;this.setProcess(null);if(this.renderer){this.renderJourney();this.resetView();}}
-  setProcess(id){this.process=id;this.processProgress=0;this.processPlaying=false;this.applyProcess();}
+  setProcess(id){this.process=id;this.experimentOptions={};this.processProgress=0;this.processPlaying=false;this.applyProcess();}
+  setExperiment(options={}){this.experimentOptions={...options};this.processProgress=0;this.applyProcess();}
   seekProcess(t){this.processProgress=Math.max(0,Math.min(1,t));this.applyProcess();}
   playProcess(value){if(value&&this.processProgress>=1)this.processProgress=0;this.processPlaying=value;this.applyProcess();}
   setEnvironment(value){this.environment=value;this.processProgress=0;this.applyProcess();}
   applyProcess(){
-    const snapshot=this.process?sampleProcess(this.process,this.processProgress,this.environment):null;
+    const snapshot=this.process?sampleProcess(this.process,this.processProgress,this.environment,this.experimentOptions):null;
+    this.processSnapshot=snapshot;
     this.activeView?.processRig?.update(snapshot);
     const view=this.activeView;
     if(view){const bounds=snapshot?view.processBounds:view.baseBounds;view.content.position.copy(bounds.center).negate();view.normalized.scale.setScalar(3.1/bounds.radius);}
@@ -208,7 +210,7 @@ export class BiologyScene extends ModelBuilders {
     if(!selection.processOnly)element.setAttribute('aria-label',`${text}: ${selection.inspect?'inspect in 3D':'open learning node'}`);
     element.onclick=()=>this.onSelect(selection);
     this.buildLabelLayer.append(element);
-    this.annotations.push({element,position:new THREE.Vector3(...position),processOnly:selection.processOnly,after:selection.after||0});
+    this.annotations.push({element,position:new THREE.Vector3(...position),processOnly:selection.processOnly,after:selection.after||0,visibleWhen:selection.visibleWhen});
   }
 
   getView({id,data,protein}) {
@@ -243,7 +245,7 @@ export class BiologyScene extends ModelBuilders {
       if(object.isInstancedMesh){object.computeBoundingBox();baseBounds.union(object.boundingBox.clone().applyMatrix4(object.matrixWorld));}
       else{object.geometry.computeBoundingBox();baseBounds.union(object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld));}
     });
-    const bounds=new THREE.Box3().setFromObject(content);
+    const bounds=this.processRig?.bounds?.clone()||new THREE.Box3().setFromObject(content);
     const center=bounds.getCenter(new THREE.Vector3());
     const size=bounds.getSize(new THREE.Vector3());
     const radius=Math.max(size.x,size.y,size.z)/2||1;
@@ -339,7 +341,7 @@ export class BiologyScene extends ModelBuilders {
     }
     this.controls.update(dt);this.scene.updateMatrixWorld();
     if ((this.labelsVisible||this.process)&&this.activeView) for (const annotation of this.activeView.annotations) {
-      annotation.element.hidden=!(annotation.processOnly?this.process&&this.processProgress>=annotation.after:this.labelsVisible);
+      annotation.element.hidden=!(annotation.processOnly?this.process&&this.processProgress>=annotation.after&&(!annotation.visibleWhen||annotation.visibleWhen(this.processSnapshot)):this.labelsVisible);
       const p=annotation.position.clone().applyMatrix4(this.activeView.content.matrixWorld).project(this.camera);
       annotation.element.style.left=`${(p.x*.5+.5)*100}%`;
       annotation.element.style.top=`${(.5-p.y*.5)*100}%`;

@@ -30,14 +30,14 @@ try {
   check('Home has a moving 3D helix and exactly two visible buttons; explorer controls stay hidden and inert');
 
   await page.locator('#home-lessons').click(); await page.locator('#lesson-dialog[open]').waitFor();
-  assert.equal(await page.locator('.lesson-card').count(), 4);
+  assert.equal(await page.locator('.lesson-card').count(), 7);
   const still = await page.locator('#home-art').getAttribute('data-rotation');
   await page.waitForTimeout(180); assert.equal(await page.locator('#home-art').getAttribute('data-rotation'), still);
   await page.keyboard.press('Escape'); assert.equal(await page.locator('#home-page').isVisible(), true);
   await page.locator('#home-lessons').click(); await page.locator('[data-lesson="membranes"]').click();
   await page.locator('#lesson-panel').waitFor();
   assert.equal(await page.locator('#home-page').isHidden(), true);
-  assert.equal(await page.locator('#scene').getAttribute('data-model'), 'phospholipid');
+  assert.equal(await page.locator('#scene').getAttribute('data-model'), 'membrane');
   assert.match(page.url(), /lesson=membranes/);
   await page.locator('#lesson-next').click(); await page.locator('[data-answer="down"]').click();
   const answer = await page.evaluate(() => JSON.parse(localStorage.getItem('biology-zoomout-lessons-v1')).lessons.membranes.answers.predict.choice);

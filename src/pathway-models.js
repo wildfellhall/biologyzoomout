@@ -1,3 +1,4 @@
+import {makePeptide} from './molecular-reactions.js';
 import * as THREE from 'three';
 import {ball,rod,path,organic,rim,mesh,surface,group,tag} from './surfaces.js';
 import {terrain} from './landscapes.js';
@@ -54,11 +55,7 @@ export const pathwayBuilders={
   for(let r=.3;r<1.9;r+=.2)rim(this.root,[r,r*.8],'#bca58b',.035);
   const pts=Array.from({length:70},(_,i)=>[Math.cos(i*.6)*.22+(i/69-.5)*2.4,Math.sin(i*.6)*.22,.25]);tag(path(this.root,pts,.045,'#9cae80'),'amylose','Amylose chain','APBIO-1.4-01');
  },
- polypeptide(){
-  const points=Array.from({length:32},(_,i)=>[(i/31-.5)*4,Math.sin(i*.7)*.55,Math.cos(i*.7)*.45]);path(this.root,points,.075,'#b4c8c0');
-  points.forEach((p,i)=>ball(this.root,p,.14,['#88b4ac','#d1b478','#bd91aa'][i%3],'atom'));
-  this.annotation('Peptide bonds',[.5,.4,.6],'APBIO-1.7-02');
- },
+ polypeptide:makePeptide,
  rrna(){
   for(let k=0;k<4;k++){
    const points=Array.from({length:50},(_,i)=>{const a=i/49*Math.PI*2;return [(k-1.5)*.8+Math.cos(a)*.38,Math.sin(a)*1.3,Math.sin(a*3+k)*.3];});path(this.root,points,.065,k%2?'#9da9c1':'#b197b6');
