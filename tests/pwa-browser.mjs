@@ -46,7 +46,7 @@ const checks = [], errors = [];
 const check = text => { checks.push(text); console.log('PASS', text); };
 const ready = page => page.waitForFunction(() => document.querySelector('.offline-state')?.dataset.state === 'ready', null, {timeout:45000});
 const frame = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const open = async (page, hash='') => { await page.goto(base + hash); await page.locator('#install-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
+const open = async (page, hash='') => { await page.goto(base + hash); if(!hash)await page.locator('#home-explore').click(); await page.locator('#install-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
 const workerStatus = page => page.evaluate(async () => {
   const registration = await navigator.serviceWorker.getRegistration();
   return new Promise(resolve => { const channel = new MessageChannel(); channel.port1.onmessage = event => { channel.port1.close(); resolve(event.data); }; registration.active.postMessage({type:'OFFLINE_STATUS'}, [channel.port2]); });
@@ -91,6 +91,8 @@ try {
   assert.equal(await page.evaluate(() => fetch('/offline-network-probe').then(() => false, () => true)), true);
   await page.reload(); await page.locator('#lesson-panel').waitFor();
   assert.deepEqual(await savedAnswer(page), lessonProgress);
+  await page.goto(base); await page.locator('#home-art[data-render="ready"]').waitFor();
+  assert.equal(await page.locator('#home-page').isVisible(), true);
   for (const model of ['animal-cell', 'ecosystem', 'biosphere']) {
     await open(page, `#path=dna&organism=animal&at=${model}`);
     assert.equal(await page.locator('#scene').getAttribute('data-model'), model);

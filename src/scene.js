@@ -314,7 +314,7 @@ export class BiologyScene extends ModelBuilders {
   frame() {
     this.raf=requestAnimationFrame(()=>this.frame());
     const now=performance.now(),dt=Math.min(.05,(now-this.previous)/1000);this.previous=now;
-    if (document.hidden) return;
+    if (document.hidden || this.active === false) return;
     if (!this.paused) this.elapsed+=dt;
     if(this.process&&this.processPlaying&&!document.querySelector('dialog[open]')){
       this.processProgress=Math.min(1,this.processProgress+dt*this.processRate/processes[this.process].seconds);
