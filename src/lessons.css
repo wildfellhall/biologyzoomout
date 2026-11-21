@@ -159,6 +159,11 @@
 .lesson-mode .process-toolbar { min-height:44px; gap:18px; }
 .lesson-mode .process-toolbar .icon-button { width:44px; height:44px; }
 .lesson-mode #process-time { font-size:11px; color:var(--muted); }
+#lesson-stage-nav { display:flex; align-items:center; gap:12px; min-height:40px; border-bottom:1px solid var(--line); }
+#lesson-stage-nav button { width:36px; min-height:36px; flex-shrink:0; }
+#lesson-stage-select { flex:1; min-width:0; max-width:100%; border:0; color:var(--ink); background:transparent; font-size:13px; padding:8px 0; text-align:center; }
+.lesson-mode:has(#lesson-stage-nav:not([hidden])) { --lesson-controls:116px; }
+.lesson-mode:has(#lesson-stage-nav:not([hidden])) #lesson-player-slot { height:84px; }
 .lesson-mode.nodes-open #lesson-panel { visibility:hidden; }
 @media(min-width:1280px) and (min-height:541px){
  .lesson-mode:has(#lesson-panel[data-play=true][data-activity=diagram]) { --lesson-column:min(60vw,1280px); }
@@ -178,6 +183,7 @@
  #lesson-heading { font-size:32px; margin-bottom:20px; }
  .lesson-footer { padding:12px var(--lesson-padding) max(12px,env(safe-area-inset-bottom)); }
  #lesson-content { max-width:none; }
+ .lesson-mode:has(#lesson-stage-nav:not([hidden])) { --lesson-controls:94px; }
 }
 @media(max-width:740px){
  #learn-toggle,#dashboard-explore { font-size:11px; }
@@ -235,6 +241,7 @@
  .activity-tabs { gap:12px; margin-bottom:18px; }
  .activity-tabs button { font-size:11px; }
  .lesson-footer { padding:8px var(--lesson-padding); }
+ .lesson-mode:has(#lesson-stage-nav:not([hidden])) { --lesson-controls:100px; }
 }
 @media(max-width:639px){
  #lesson-panel { z-index:16; }
@@ -247,6 +254,7 @@
  .lesson-mode .topbar { height:var(--lesson-top); }
  .lesson-scroll { padding:18px var(--lesson-padding); }
  .lesson-footer { padding-top:8px; padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+ .lesson-mode:has(#lesson-stage-nav:not([hidden])) { --lesson-controls:88px; }
 }
 @media(max-width:350px){.dashboard-mode .top-actions { gap:9px; }.unit-card h3 { font-size:18px; }.unit-card svg { width:32px; height:32px; }.unit-card { padding:15px 12px 18px; }.activity-tabs { gap:10px; }.activity-tabs button { font-size:11px; }}
 @media(prefers-reduced-motion:reduce){.unit-card { transition:none; }}

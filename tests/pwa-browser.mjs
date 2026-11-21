@@ -133,6 +133,11 @@ try {
     await page.locator('#experiment-run').click();
     await page.waitForFunction(() => document.querySelector('#experiment-status').textContent.startsWith('Run complete'));
     assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
+    if(id==='topic-4-5'||id==='topic-5-1'){
+      assert.equal(await page.locator('#lesson-stage-nav').isVisible(),true);
+      assert.equal(await page.locator('#lesson-stage-select option').count(),id==='topic-4-5'?9:13);
+      assert.match(await page.locator('#experiment-status').textContent(),id==='topic-4-5'?/Chromosomes per cell: 4 \/ 4/:/Chromosomes per cell: 2 \/ 2 \/ 2 \/ 2/);
+    }
   }
   const coverage = await page.evaluate(async () => (await fetch('/data/lesson-coverage.json')).json());
   assert.equal(coverage.lessonCount, 60);
@@ -202,11 +207,19 @@ try {
   assert.equal(await page.evaluate(() => caches.keys().then(keys => keys.some(key => key.endsWith('invalid-release')))), false);
   assert.deepEqual(await savedAnswer(page), lessonProgress);
   brokenAsset = false; servedWorker = originalWorker.replace(build.version, 'verified-update');
+  const nextWorker = context.waitForEvent('serviceworker');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+  const verifiedWorker = await nextWorker;
   await page.waitForFunction(() => document.querySelector('#app-update').hidden === false, null, {timeout:45000});
   assert.equal((await workerStatus(page)).version, build.version);
   assert.match(page.url(), /lesson=polypeptide/);
+  // Activation is asynchronous after the last app client closes. Observe it
+  // from the worker so reopening does not race and keep the old worker alive.
+  await verifiedWorker.evaluate(() => { self.__testActivation = new Promise(resolve => self.addEventListener('activate', () => resolve(true), {once:true})); });
   await page.close();
+  let activationTimeout;
+  try { await Promise.race([verifiedWorker.evaluate(() => self.__testActivation),new Promise((_,reject) => { activationTimeout=setTimeout(() => reject(new Error('Waiting update did not activate after app closure')),15000); })]); }
+  finally { clearTimeout(activationTimeout); }
   const reopened = await context.newPage(); await open(reopened); await ready(reopened);
   assert.equal((await workerStatus(reopened)).version, 'verified-update');
   assert.deepEqual(await savedAnswer(reopened), lessonProgress);

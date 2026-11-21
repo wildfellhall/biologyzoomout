@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {ball,rod,path,organic,group,mesh,surface} from '../surfaces.js';
 import {contentFor} from './content.js';
 import {labs,sampleLab} from './labs.js';
+import {makeDivisionModel} from '../division-model.js';
 const colors=['#7fa69c','#cfad72','#af90ad','#7f9eb8'];
 const clamp=x=>Math.max(0,Math.min(1,x));
 const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
@@ -17,6 +18,7 @@ function water(parent){const g=group(parent);ball(g,[0,0,0],.13,'#c97f6e','atom'
 // renderer geometry is not used as a source of biological measurements.
 export function makeCourseModel(data){
  const content=contentFor(data.topic),kind=content.sim,config=labs[kind],visual=config.visual,root=this.root;
+ if(kind==='mitosis'||kind==='meiosis'){makeDivisionModel.call(this,kind);return;}
  if(visual==='replication'){this.makeDNA();return;}
  if(visual==='translation'){this.makeStructure('ribosome');return;}
  const updates=[];

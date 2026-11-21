@@ -12,7 +12,7 @@ export function createLessonUI(api){
   <section id="lesson-panel" aria-labelledby="lesson-heading" hidden>
    <div class="lesson-topline"><button id="lesson-catalog-button">← Lessons</button><span id="lesson-topic"></span><span id="lesson-counter"></span><button id="lesson-exit" aria-label="Exit lesson and explore this model">Explore ↗</button></div>
    <div class="lesson-scroll"><div class="lesson-kind" id="lesson-kind"></div><h2 id="lesson-heading" tabindex="-1"></h2><div id="lesson-tabs" hidden></div><div id="lesson-content"></div><div id="lesson-live" hidden><div id="lesson-cues"></div><p id="lesson-cue-text" aria-live="polite" aria-atomic="true"></p><output id="lesson-live-metrics"></output></div><div id="lesson-feedback" role="status" tabindex="-1" hidden></div><details class="lesson-references"><summary>Sources & AP skills</summary><div><select id="lesson-skill" aria-label="Open a related AP Biology skill"></select><a id="lesson-source" target="_blank" rel="noopener">Reference ↗</a></div></details></div>
-   <div id="lesson-player-slot"></div>
+   <div id="lesson-player-slot"><nav id="lesson-stage-nav" aria-label="Cell division stages" hidden><button id="lesson-stage-back" aria-label="Previous animation stage">←</button><select id="lesson-stage-select" aria-label="Animation stage"></select><button id="lesson-stage-next" aria-label="Next animation stage">→</button></nav></div>
   <div class="lesson-footer"><button id="lesson-back">← Back</button><button id="lesson-next">Continue →</button></div>
   </section>`);
  const panel=$('#lesson-panel');
@@ -66,6 +66,9 @@ export function createLessonUI(api){
   panel.querySelector('.lesson-references').open=false;
   $('#lesson-live').hidden=!canPlay();
   $('#lesson-live').innerHTML='';lastCue='';lastDiagram='';
+  const stages=activities[l.id]?.stages;
+  $('#lesson-stage-nav').hidden=!canPlay()||!stages;
+  $('#lesson-stage-select').innerHTML=stages?stages.map((stage,i)=>`<option value="${i}">${esc(stage.title)}</option>`).join(''):'';
   if(canPlay()){
    labData[l.id]??={condition:activities[l.id].options[0].id,prediction:'',runs:[]};
    $('#lesson-live').innerHTML=activityMarkup(l.id,labData[l.id]);
@@ -106,6 +109,7 @@ export function createLessonUI(api){
   const l=lesson(),review=active==='review';api.scene.playProcess(false);panel.dataset.play='false';panel.dataset.type='complete';
   $('#lesson-heading').textContent=review?'Review complete':`${l.title} · complete`;
   $('#lesson-kind').textContent='Keep the idea available';$('#lesson-live').hidden=true;$('#lesson-tabs').hidden=true;$('#lesson-content').hidden=false;$('#lesson-feedback').hidden=true;
+  $('#lesson-stage-nav').hidden=true;
   const choices=checkpoints(l).filter(s=>s.type==='question'),correct=review?0:choices.filter(s=>progress.lessons[active].answers[s.id]?.firstCorrect).length;
   const recall=review?null:progress.lessons[active].answers[checkpoints(l).find(s=>s.type==='recall').id];
   const nextDue=review?null:Math.min(...checkpoints(l).map(s=>progress.reviews[lessonKey(l,s)].due));
@@ -147,6 +151,8 @@ export function createLessonUI(api){
   if(lastDiagram!==drawing){lastDiagram=drawing;$('#lesson-diagram').innerHTML=diagramSVG(lesson().id,snapshot);}
   const metrics=snapshot.metrics.map(([label,value])=>`${label}: ${value}`).join('  ·  ');
   if($('#lesson-live-metrics').textContent!==metrics)$('#lesson-live-metrics').textContent=metrics;
+  const stages=activities[lesson().id]?.stages;
+  if(stages){$('#lesson-stage-select').value=String(snapshot.phase);$('#lesson-stage-back').disabled=snapshot.phase===0;$('#lesson-stage-next').disabled=snapshot.arrested||snapshot.phase===stages.length-1;}
   if(running&&snapshot.t>=1){
    const result=experimentResult(running.id,snapshot);
    labData[running.id].runs.push({...running,result});labData[running.id].runs=labData[running.id].runs.slice(-3);
@@ -158,6 +164,10 @@ export function createLessonUI(api){
   event.preventDefault();event.stopPropagation();const names=['read','diagram','experiment','check'],i=names.indexOf(tab.dataset.activityTab);
   selectActivity(names[event.key==='Home'?0:event.key==='End'?3:(i+(event.key==='ArrowRight'?1:3))%4],true);
  });
+ function selectStage(index){const stages=activities[lesson()?.id]?.stages;if(!stages?.[index])return;running=null;api.scene.playProcess(false);api.scene.seekProcess(stages[index].at);}
+ $('#lesson-stage-select').onchange=event=>selectStage(Number(event.target.value));
+ $('#lesson-stage-back').onclick=()=>selectStage(Number($('#lesson-stage-select').value)-1);
+ $('#lesson-stage-next').onclick=()=>selectStage(Number($('#lesson-stage-select').value)+1);
  panel.addEventListener('click',event=>{
   const tab=event.target.closest('[data-activity-tab]');if(tab){selectActivity(tab.dataset.activityTab);return;}
   const quick=event.target.closest('[data-quick-choice]');if(quick){const c=activities[lesson().id].check;for(const b of panel.querySelectorAll('[data-quick-choice]'))b.setAttribute('aria-pressed',String(b===quick));$('#quick-feedback').hidden=false;$('#quick-feedback').textContent=(Number(quick.dataset.quickChoice)===c.correct?'Yes. ':'Reconsider. ')+c.feedback;return;}

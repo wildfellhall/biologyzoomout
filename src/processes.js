@@ -71,10 +71,11 @@ export const processes={
   'A developing woodland changes shade and habitat structure.'
  ],'45-6-community-ecology','One authored 80-year secondary-succession scenario, not a forecast. Growth curves illustrate turnover; rates, species, and final communities vary with conditions.'),
 };
-for(const c of courseContent){const lab=labs[c.sim];processes[`topic-${c.topic}`]=define(lab.beats[0],['lesson-lab'],c.sim==='replication'?22:c.sim==='translation'?24:18,lab.beats,'https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf',lab.note);}
+for(const c of courseContent){const lab=labs[c.sim];processes[`topic-${c.topic}`]=define(lab.name||lab.beats[0],['lesson-lab'],lab.seconds||(c.sim==='replication'?22:c.sim==='translation'?24:18),lab.beats,'https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf',lab.note);}
 export const processesFor=id=>Object.entries(processes).filter(([,p])=>p.models.includes(id)).map(([id,p])=>({id,...p}));
 // Match explanatory beats to the rig's binding, reaction and product events.
 export const phaseStarts={catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
+for(const c of courseContent)if(labs[c.sim].stages)phaseStarts[`topic-${c.topic}`]=labs[c.sim].stages.map(s=>s.at);
 export function phaseAt(id,t){const stops=phaseStarts[id]||[0,.25,.5,.75];return Math.max(0,stops.findLastIndex(start=>t>=start));}
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
 export const ease=n=>{n=clamp(n);return n*n*(3-2*n);};

@@ -1,4 +1,5 @@
 import {replicationState,translationState} from '../reaction-state.js';
+import {divisionState,divisionStages} from '../division-state.js';
 const o=(id,label)=>({id,label});
 const lab=(visual,prompt,options,measure,note,beats)=>({visual,prompt,options:options.map(([id,label])=>o(id,label)),measure,note,beats});
 const demo='Illustrative model with chosen parameters, not measured rates or a molecular-dynamics simulation. ';
@@ -64,6 +65,10 @@ export const labs={
  biodiversity:lab('habitat','How do different response traits affect function during and after the same disturbance?', [['normal','Three functional contributors'],['single','One sensitive contributor']],'Function retained (%)',demo+'Equal initial function. Three contributors have different disturbance tolerances; a single contributor is sensitive. This comparison isolates response diversity, not a universal richness rule.',['Equal initial function','Disturbance','Resistance','Recovery']),
  disturbance:lab('habitat','Trace the delay between a nutrient pulse and oxygen decline.',[['normal','Moderate nutrient input'],['enriched','High nutrient input']],'Dissolved O₂ index',demo+'A chosen lag links producer growth to decomposer demand. Relative oxygen index is not mg/L; physical mixing and reaeration are held out.',['Nutrient pulse','Producer increase','Decomposition','Oxygen demand']),
 };
+for(const kind of ['mitosis','meiosis'])Object.assign(labs[kind],{stages:divisionStages[kind],beats:divisionStages[kind].map(s=>s.title),seconds:kind==='mitosis'?42:64,name:kind==='mitosis'?'Cell cycle & mitosis':'Meiosis I & II'});
+labs.mitosis.note='Illustrative animal cell with 2n = 4; teal and coral distinguish homolog origin and length distinguishes the two pairs. C is DNA content relative to one unreplicated haploid genome. S phase precedes mitosis. The blocked spindle treatment arrests before anaphase. Shape, timing and microtubule counts are schematic; plants form a cell plate rather than a cleavage furrow.';
+labs.meiosis.options.push(o('no-crossover','No crossover · normal segregation'),o('alternate','Reverse the second pair’s orientation'));
+labs.meiosis.note='Illustrative animal-cell sequence with 2n = 4 and one tracked crossover between nonsister chromatids of the long pair. Four equal products illustrate chromosome distribution, not unequal egg/polar-body formation. Nuclear envelopes reform here between divisions; this varies among organisms. The no-crossover comparison holds segregation normal. C measures DNA content, not chromosome number; display time and spindle geometry are schematic.';
 const clamp=x=>Math.max(0,Math.min(1,x));
 const ramp=(t,a=0,b=1)=>clamp((t-a)/(b-a));
 const round=(n,d=2)=>Number(n.toFixed(d));
@@ -73,6 +78,7 @@ function rng(seed){let n=seed>>>0;return()=>{n=(Math.imul(1664525,n)+1013904223)
 function sampleDrift(n,g){const random=rng(2027);let p=.5;for(let generation=0;generation<g;generation++){let a=0;for(let j=0;j<2*n;j++)a+=random()<p;p=a/(2*n);}return p;}
 export function sampleLab(kind,t,condition='normal'){
  t=clamp(t);const config=labs[kind];if(!config)throw new Error(`Unknown lab ${kind}`);
+ if(kind==='mitosis'||kind==='meiosis')return divisionState(kind,t,condition);
  const s={t,condition,kind,phase:Math.min(3,Math.floor(t*4)),value:0,level:t,distribution:null,axis:'Model progress'};
  const v=condition!=='normal',step=ramp(t,.15,.85),end=ramp(t,.65,1);
  switch(kind){
@@ -102,9 +108,7 @@ export function sampleLab(kind,t,condition='normal'){
   case 'reception':s.value=condition==='blocked'?0:100*step;s.blocked=condition==='blocked';s.constitutive=condition==='constitutive';break;
   case 'cascade':s.value=condition==='blocked'?0:Math.floor(20*step);s.blocked=condition==='blocked';s.bypass=condition==='bypass';break;
   case 'feedback':s.value=1+.5*(v?Math.exp(1.2*t):Math.exp(-5*t));s.reference=1;break;
-  case 'mitosis':s.divides=!v;s.value=s.divides&&t>=.85?2:0;s.dna=t<.25?4+4*t/.25:s.divides&&t>=.85?4:8;break;
   case 'checkpoint':s.divides=v;s.value=v&&t>=.85?2:0;s.damage=true;s.dna=8;break;
-  case 'meiosis':s.distribution=v?[3,3,1,1]:[2,2,2,2];s.value=t>=.5?2:4;s.nondisjunction=v;break;
   case 'recombination':s.recombined=v&&t>.5;s.value=s.recombined?2:0;break;
   case 'mendel':s.distribution=v?[0,.5,.5]:[.25,.5,.25];s.value=100*s.distribution[2];break;
   case 'nonmendel':s.distribution=v?[.75,0,.25]:[.25,.5,.25];s.value=v?2:3;break;
@@ -139,7 +143,6 @@ export function sampleLab(kind,t,condition='normal'){
  if(kind==='cell-size')s.metrics.push(['Area (μm²)',round(s.area).toString()],['Volume (μm³)',round(s.volume).toString()]);
  if(kind==='replication')s.metrics.push(['Unsealed nicks',String(s.nicks)]);
  if(kind==='translation')s.metrics.push(['Chain',s.chain.join('–')||'Not started']);
- if(kind==='meiosis')s.metrics=[[config.measure,t<.9?'Division in progress':s.distribution.join(', ')]];
  if(kind==='mutation')s.metrics=[[s.frameshift?'Shifted message':'Message',s.codons.join('–')],['Frame',s.frameshift?'Shifted':'Preserved']];
  if(kind==='mendel'||kind==='hardy-weinberg')s.metrics.push(['AA / Aa / aa',s.distribution.map(x=>`${round(x*100)}%`).join(' / ')]);
  if(kind==='speciation')s.metrics.push(['p₁ / p₂',`${round(s.a)} / ${round(s.b)}`]);

@@ -1,6 +1,7 @@
 import {courseContent} from './content.js';
 import {labs,sampleLab} from './labs.js';
 import {esc} from '../node-detail.js';
+import {divisionDiagram} from '../division-diagram.js';
 const curves=new Map();
 function curve(kind,condition){const key=`${kind}:${condition}`;if(!curves.has(key))curves.set(key,Array.from({length:41},(_,i)=>sampleLab(kind,i/40,condition)));return curves.get(key);}
 const idFor=topic=>`topic-${topic.replace('.','-')}`;
@@ -9,6 +10,7 @@ export function courseResult(id,s){return s.metrics.map(([name,value])=>`${name}
 const text=(x,y,value,anchor='start')=>`<text x="${x}" y="${y}" text-anchor="${anchor}">${esc(value)}</text>`;
 export function courseDiagram(topic,s){
  const c=courseContent.find(c=>c.topic===topic),lab=labs[c.sim];if(!s)return '';
+ if(c.sim==='mitosis'||c.sim==='meiosis')return divisionDiagram(s);
  let shape='';
  if(['inheritance','distribution'].includes(lab.visual)&&s.distribution){
   const total=s.distribution.reduce((a,b)=>a+b,0),names=lab.visual==='inheritance'?(c.sim==='nonmendel'?['Red','Pink','White']:['AA','Aa','aa']):['Class 1','Class 2','Class 3'];

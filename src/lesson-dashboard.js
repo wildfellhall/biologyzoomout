@@ -39,7 +39,7 @@ export function createLessonDashboard(api){
   }).join('');
   const searching=!!query.trim(),showTopics=!!unit||searching;
   $('#dashboard-units').hidden=showTopics;$('#dashboard-topics').hidden=!showTopics;
-  const matches=l=>`${l.topic||''} ${l.title} ${l.objective} ${l.unit} ${framework.units[l.unitNumber]||''}`.toLowerCase().includes(query.trim().toLowerCase());
+  const matches=l=>`${l.topic||''} ${l.title} ${l.objective} ${l.labKind||''} ${l.unit} ${framework.units[l.unitNumber]||''}`.toLowerCase().includes(query.trim().toLowerCase());
   const shown=course.filter(l=>searching?matches(l):l.unitNumber===unit),focused=lessons.filter(l=>!l.topic&&(searching?matches(l):Number(l.unit.match(/\d/)?.[0])===unit));
   const card=(l,focus=false)=>{const saved=progress.lessons[l.id],done=complete(progress,l);return `<button class="lesson-card ${focus?'focused-lesson':'topic-lesson'}" data-lesson="${l.id}"><span class="lesson-number">${esc(l.topic||'↳')}</span><span class="lesson-card-copy"><h3>${esc(l.title)}</h3><small>${l.minutes} min${done?' · completed':saved?' · in progress':''}</small></span><span class="lesson-card-action" aria-label="${done?'Revisit':saved?'Resume':'Begin'}">${done?'✓':'→'}</span></button>`;};
   $('#lesson-unit-heading').textContent=searching?'Search results':`Unit ${unit} · ${framework.units[unit]||''}`;

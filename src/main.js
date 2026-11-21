@@ -378,7 +378,7 @@ try {
     $('#process-range').setAttribute('aria-valuetext',snapshot.time);
     $('#process-time').textContent=snapshot.time;
     if($('#process-caption').textContent!==snapshot.caption)$('#process-caption').textContent=snapshot.caption;
-    $('#process-beat').textContent=['selection','predation','succession'].includes(snapshot.id)?'Now':`${snapshot.phase+1} / 4`;
+    $('#process-beat').textContent=['selection','predation','succession'].includes(snapshot.id)?'Now':`${snapshot.phase+1} / ${processes[snapshot.id].steps.length}`;
     const chapterKey=`${snapshot.id}:${snapshot.phase}`;
     if($('#process-chapters').dataset.key!==chapterKey){
       $('#process-chapters').dataset.key=chapterKey;

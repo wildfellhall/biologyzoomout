@@ -12,6 +12,7 @@ const topicContext={
  '2.6':['membrane','membrane'],'2.7':['membrane','animal-cell','animal'],'2.8':['translation','rough-er'],
  '2.9':['respiration','mitochondrion'],'2.10':['mitochondrial-dna','mitochondrion'],
  '3.1':['enzymes','enzyme'],'3.2':['enzymes','enzyme'],'3.4':['photosynthesis','chloroplast'],
+ '4.5':['dna','animal-cell','animal'],'5.1':['dna','animal-cell','animal'],
  '5.5':['photosynthesis','plant'],'6.3':['dna','nucleus'],'6.4':['translation','ribosome'],
  '8.1':['photosynthesis','plant'],'8.3':['woodland','tree-population'],'8.4':['woodland','tree-population'],'8.5':['woodland','community'],
 };
@@ -22,7 +23,7 @@ function assessment(data,offset){
 export const courseLessons=courseContent.map((c,index)=>{
  const topic=framework.topics.find(t=>t.id===c.topic),unit=Number(c.topic.split('.')[0]),config=labs[c.sim],id=topicLessonId(c.topic),[path,model,organism='plant']=topicContext[c.topic]||context[unit];
  const view=(at=0,animated=true)=>({path,model,organism,lab:c.topic,process:animated?`topic-${c.topic}`:null,at});
- const cues=config.beats.map((title,i)=>({at:i/3,title,text:i===0?c.objective:i===3?config.note:config.prompt}));
+ const cues=config.stages||config.beats.map((title,i)=>({at:i/3,title,text:i===0?c.objective:i===3?config.note:config.prompt}));
  return {id,topic:c.topic,unitNumber:unit,title:topic.title,unit:`Unit ${unit}`,minutes:10,objective:c.objective,nodes:topic.nodes,source:`${framework.source}#page=${topic.pdf_page}`,labKind:c.sim,
   steps:[
    {id:'explain',type:'explain',title:topic.title,body:c.explanation,view:view(),cues},

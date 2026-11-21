@@ -175,7 +175,7 @@ export class BiologyScene extends ModelBuilders {
     const bounds=this.process?this.activeView?.processBounds:this.activeView?.baseBounds;
     const extent=bounds?.size?.clone().multiplyScalar(3.1/bounds.radius);
     const distance=first?.id==='lesson-lab'&&extent
-      ?8*Math.max(1,(extent.y+.2*extent.z)/4.5,(extent.x+.2*extent.z)/(4.5*this.camera.aspect))
+      ?8*(this.activeView?.processRig?.cameraScale||1)*Math.max(1,(extent.y+.2*extent.z)/4.5,(extent.x+.2*extent.z)/(4.5*this.camera.aspect))
       :11.5*Math.max(1,widthFraction/this.camera.aspect);
     this.camera.position.normalize().multiplyScalar(distance);
   }
