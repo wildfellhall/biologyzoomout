@@ -27,3 +27,13 @@ Validation: audit all 67 mappings, four distinct choices and exactly one key, fe
 - Production build succeeded. The existing large-bundle advisory remains; the app still pre-caches approximately 12.1 MB for offline use. No ontology data, checkpoint IDs, or saved lesson sequence indexes were changed.
 
 Run `node tests/lesson-visual-practice-browser.mjs` against the local production preview for the complete browser check; `SKIP_COVERAGE=1` omits the 67-lesson construction sweep when repeating only interaction and fallback checks. Browser screenshots and reports stay under ignored `test-results/`.
+
+## Guided lesson presentation
+
+The lesson interface now presents one continuous 11-part sequence: explanation, prediction, observation, experiment, worked example, diagram labeling, model assembly, two practice questions, transfer, and written recall. The footer provides Back and one main action. For a complete but unchecked visual task, that action checks the labels/model; after feedback it becomes Continue. Questions require an attempt, and recall retains its existing comparison and self-assessment gate. There are no lesson tabs, visual-mode menus, or separate question pagers.
+
+The original six authored steps and checkpoint IDs remain the underlying content model. The additional `part` field in lesson progress and URLs records the precise presentation position; old `step` links resolve to the first corresponding part. Existing answers, completed lessons, review schedules, and versioned visual/practice records retain their meanings. Adjacent parts on the same authored step keep the model mounted, and returning from assembly restores the original scene. Short content transitions respect reduced-motion settings.
+
+Verification for this presentation change includes `tests/lesson-flow.test.mjs` and `tests/lesson-flow-browser.mjs`, in addition to the existing lesson, visual-practice, and layout regression suites. The end-to-end flow test uses the main action through every part, including checking activities, feedback, Back, precise reload/resume, dashboard return, phone layouts, offline continuation, and automatic playback.
+
+Guided-flow validation completed: 68 unit tests passed; the guided-flow, interactive-lesson, responsive-layout, dashboard, lesson/review, division-animation, AP-practice, and focused visual-practice browser checks passed. Desktop and phone screenshots were reviewed. The narrow dashboard header also hides its redundant current-page Lessons button at widths up to 370 px to preserve space for the brand, explorer, search, and installation controls.

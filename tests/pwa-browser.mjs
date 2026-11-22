@@ -1,4 +1,4 @@
-import {showLessonDiagram} from './ui-helpers.mjs';
+import {showLessonDiagram,showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -128,14 +128,14 @@ try {
   assert.equal(await page.evaluate(async () => (await (await fetch('/data/ontology.json')).json()).nodes.length), 234);
   for (const [id, condition, expected] of [['replication','ligase-off',/5 unsealed/],['translation','stop',/Met–Ala/],['polypeptide','blocked',/3 residues/]]) {
     await open(page, `#lesson=${id}&step=0`);
-    await page.locator('#experiment-tab').click();
+    await showLessonPart(page,'experiment');
     await page.locator('#experiment-condition').selectOption(condition);
     await page.locator('#experiment-prediction').fill('This blocked step will change the product.');
     await page.locator('#experiment-run').click();
     assert.match(await page.locator('#experiment-status').textContent(), expected);
     assert.equal(await page.locator('#scene canvas').count(), 1);
   }
-  await page.reload(); await page.locator('#experiment-tab').click();
+  await page.reload(); await showLessonPart(page,'experiment');
   assert.equal(await page.locator('#experiment-prediction').inputValue(), 'This blocked step will change the product.');
   assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
   check('Replication, translation, and peptide experiments run offline and preserve predictions and results');
@@ -143,7 +143,7 @@ try {
   for (const id of ['topic-1-1','topic-2-2','topic-3-1','topic-4-5','topic-5-1','topic-6-3','topic-7-9','topic-8-4']) {
     await open(page, `#lesson=${id}&step=0`);
     assert.equal(await page.locator('#scene').getAttribute('data-model'), 'lesson-lab');
-    await page.locator('#experiment-tab').click();
+    await showLessonPart(page,'experiment');
     await page.locator('#experiment-prediction').fill('Compare the result with the stated mechanism.');
     await page.locator('#experiment-run').click();
     await page.waitForFunction(() => document.querySelector('#experiment-status').textContent.startsWith('Run complete'));
@@ -157,7 +157,7 @@ try {
   const coverage = await page.evaluate(async () => (await fetch('/data/lesson-coverage.json')).json());
   assert.equal(coverage.lessonCount, 60);
   assert.equal(await page.evaluate(async () => (await (await fetch('/data/lesson-coverage.csv')).text()).trim().split('\n').length), 61);
-  await page.reload(); await page.locator('#experiment-tab').click();
+  await page.reload(); await showLessonPart(page,'experiment');
   assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
   check('Previously unvisited topic lessons from all eight units and their coverage tables work offline');
   // Leave the original detailed study open for the existing update-lifecycle check.

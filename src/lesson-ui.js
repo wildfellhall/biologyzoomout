@@ -1,3 +1,4 @@
+import {lessonFlow,resolveLessonPart} from './lesson-flow.js';
 import {createLessonQuestions} from './lesson-practice/question-ui.js';
 import {createVisualPractice} from './lesson-practice/visual-ui.js';
 import {visualActivities} from './lesson-practice/visual-data.js';
@@ -8,16 +9,16 @@ import {esc} from './node-detail.js';
 
 export function createLessonUI(api){
  const $=s=>document.querySelector(s);let storage;try{storage=localStorage;}catch{}
- let visualUI=null,puzzleScene=null;
+ let visualUI=null,questionUI=null,puzzleScene=null,flowIndex=0,transition=null;
  let labData=loadExperiments(storage),running=null,lastDiagram='';
  let progress=loadProgress(storage),active=null,stepIndex=0,reviewQueue=[],reviewIndex=0,reviewAnswers={},revealed=new Set(),lastCue='',persistent=!!storage;
  const player=$('#process-panel'),viewer=$('#viewer');
  $('#app').insertAdjacentHTML('beforeend',`
   <section id="lesson-panel" aria-labelledby="lesson-heading" hidden>
    <div class="lesson-topline"><button id="lesson-catalog-button">← Lessons</button><span id="lesson-topic"></span><span id="lesson-counter"></span><button id="lesson-exit" aria-label="Exit lesson and explore this model">Explore ↗</button></div>
-   <div class="lesson-scroll"><div class="lesson-kind" id="lesson-kind"></div><h2 id="lesson-heading" tabindex="-1"></h2><div id="lesson-tabs" hidden></div><div id="lesson-content"></div><div id="lesson-live" hidden><div id="lesson-cues"></div><p id="lesson-cue-text" aria-live="polite" aria-atomic="true"></p><output id="lesson-live-metrics"></output></div><div id="lesson-feedback" role="status" tabindex="-1" hidden></div><details class="lesson-references"><summary>Sources & AP skills</summary><div><select id="lesson-skill" aria-label="Open a related AP Biology skill"></select><a id="lesson-source" target="_blank" rel="noopener">Reference ↗</a></div></details></div>
+   <div class="lesson-scroll"><div class="lesson-kind" id="lesson-kind"></div><h2 id="lesson-heading" tabindex="-1"></h2><div id="lesson-content"></div><div id="lesson-live" hidden><div id="lesson-cues"></div><p id="lesson-cue-text" aria-live="polite" aria-atomic="true"></p><output id="lesson-live-metrics"></output></div><div id="lesson-feedback" role="status" tabindex="-1" hidden></div><details class="lesson-references"><summary>Sources & AP skills</summary><div><select id="lesson-skill" aria-label="Open a related AP Biology skill"></select><a id="lesson-source" target="_blank" rel="noopener">Reference ↗</a></div></details></div>
    <div id="lesson-player-slot"><nav id="lesson-stage-nav" aria-label="Cell division stages" hidden><button id="lesson-stage-back" aria-label="Previous animation stage">←</button><select id="lesson-stage-select" aria-label="Animation stage"></select><button id="lesson-stage-next" aria-label="Next animation stage">→</button></nav></div>
-  <div class="lesson-footer"><button id="lesson-back">← Back</button><button id="lesson-next">Continue →</button></div>
+  <div class="lesson-footer"><button id="lesson-back">← Back</button><span id="lesson-up-next" aria-hidden="true"></span><button id="lesson-next">Continue →</button></div>
   </section>`);
  const panel=$('#lesson-panel');
  const persist=()=>{persistent=saveProgress(progress,storage);};
@@ -25,15 +26,18 @@ export function createLessonUI(api){
  const step=()=>active==='review'?reviewQueue[reviewIndex]?.step:lesson()?.steps[stepIndex];
  const key=()=>lesson()&&step()?lessonKey(lesson(),step()):'';
  const answer=()=>active==='review'?reviewAnswers[key()]:progress.lessons[active]?.answers[step()?.id];
- const canPlay=()=>!puzzleScene&&active!=='review'&&['explain','observe','experiment'].includes(step()?.type)&&!!step()?.view.process;
+ const flow=()=>lesson()?lessonFlow(lesson()):[];
+ const part=()=>!active||active==='review'?null:flow()[flowIndex];
+ const canPlay=()=>!puzzleScene&&active!=='review'&&['read','inspect','experiment'].includes(part()?.kind)&&!!step()?.view.process;
  const changed=()=>api.onChange?.();
- const savePosition=()=>{if(active&&active!=='review'){progress=beginLesson(progress,active,stepIndex);persist();}};
+ const savePosition=()=>{if(active&&active!=='review'){progress=beginLesson(progress,active,stepIndex,part().id);persist();}};
 
  function openCatalog(){savePosition();api.openDashboard();}
- function start(id,{step:requested=null}={}){
+ function start(id,{step:requested=null,part:requestedPart=null}={}){
   const l=lessonById(id);if(!l)return false;
-  const saved=progress.lessons[id];
-  active=id;stepIndex=Math.max(0,Math.min(l.steps.length-1,Number.isInteger(requested)?requested:saved?.finishedAt!==null&&saved?.finishedAt!==undefined?0:saved?.step||0));
+  visualUI?.destroy();visualUI=null;questionUI=null;
+  const saved=progress.lessons[id],resume=requested===null&&!requestedPart&&saved?.finishedAt==null;
+  active=id;flowIndex=resolveLessonPart(l,{step:resume?saved?.step??0:requested,part:resume?saved?.part:requestedPart});stepIndex=flow()[flowIndex].step;
   revealed=new Set();document.body.classList.add('lesson-mode');panel.hidden=false;$('#lesson-next').hidden=false;player.remove();$('#lesson-player-slot').append(player);
   api.closeOverlays();showStep();return true;
  }
@@ -41,22 +45,41 @@ export function createLessonUI(api){
   const due=reviewItems(progress);reviewQueue=due.length?due:reviewItems(progress,Date.now(),true);if(!reviewQueue.length)return false;
   active='review';reviewIndex=0;reviewAnswers={};revealed=new Set();document.body.classList.add('lesson-mode');panel.hidden=false;$('#lesson-next').hidden=false;$('#lesson-player-slot').append(player);api.closeOverlays();showStep();return true;
  }
- function showStep(){
-  visualUI?.destroy();visualUI=null;
+ function showStep({keepModel=false,animate=false}={}){
+  transition?.cancel();transition=null;visualUI?.destroy();visualUI=null;questionUI=null;
   const s=step();if(!s)return;running=null;savePosition();lastCue='';lastDiagram='';
-  api.navigate({...s.view,process:active==='review'?null:s.view.process,autoplay:canPlay()});
+  if(!keepModel)api.navigate({...s.view,process:active==='review'?null:s.view.process,autoplay:canPlay()});
+  else api.scene.playProcess(canPlay()&&api.canAutoplay());
   api.scene.setPaused(true);renderCard();changed();$('#lesson-heading').focus({preventScroll:true});$('.lesson-scroll').scrollTop=0;
+  if(animate&&!api.scene.reducedMotion){
+   const animation=$('.lesson-scroll').animate([{opacity:.4,transform:'translateY(7px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});
+   transition=animation;syncFooter();animation.finished.catch(()=>{}).finally(()=>{if(transition===animation){transition=null;syncFooter();}});
+  }
+ }
+ function syncFooter(){
+  if(!active||panel.dataset.type==='complete')return;
+  const p=part(),state=visualUI?.state;
+  let enabled=active==='review'||p?.kind==='checkpoint'||p?.kind==='recall'?isAnswered(step(),answer()):true;
+  if(p?.kind==='practice')enabled=!!questionUI?.answered;
+  if(['label','build'].includes(p?.kind))enabled=!!(state?.checked||state?.complete);
+  $('#lesson-next').disabled=!enabled||!!transition;
+  $('#lesson-next').textContent=state&&!state.checked?(p.kind==='label'?'Check labels →':'Check model →'):(active==='review'?reviewIndex===reviewQueue.length-1:flowIndex===flow().length-1)?'Finish →':'Continue →';
+  $('#lesson-back').disabled=(active==='review'?reviewIndex===0:flowIndex===0)||!!transition;
+  $('#lesson-up-next').textContent=active==='review'?'':flow()[flowIndex+1]?`Next: ${flow()[flowIndex+1].title}`:'';
  }
  function renderCard(){
-  const l=lesson(),s=step(),a=answer();if(!s)return;
-  panel.dataset.type=s.type;panel.dataset.play=String(canPlay());panel.dataset.stepKey=key();
+  const l=lesson(),s=step(),a=answer(),p=part();if(!s)return;
+  const activity={inspect:'diagram',label:'label',build:'build',experiment:'experiment',practice:'check'}[p?.kind];
+  panel.dataset.type=p?.kind==='practice'?'question':s.type;panel.dataset.play=String(canPlay());panel.dataset.stepKey=key();panel.dataset.part=p?.id||'review';
+  panel.dataset.activity=['label','diagram'].includes(activity)?'diagram':activity||'read';
   $('#lesson-topic').textContent=active==='review'?'Review':l.topic?`Topic ${l.topic}`:l.unit;
-  $('#lesson-counter').textContent=active==='review'?`${reviewIndex+1} / ${reviewQueue.length}`:`${stepIndex+1} / ${l.steps.length}`;
-  $('#lesson-kind').textContent=active==='review'?'Retrieve from memory':({explain:'Build the explanation',question:s.id==='predict'?'Make a prediction':'Apply the idea',observe:'Observe and explain',experiment:'Compare conditions',recall:'Retrieve from memory'}[s.type]);
-  $('#lesson-heading').textContent=s.title;
+  $('#lesson-counter').textContent=active==='review'?`${reviewIndex+1} / ${reviewQueue.length}`:`${flowIndex+1} / ${flow().length}`;
+  $('#lesson-kind').textContent=active==='review'?'Retrieve from memory':p.title;
+  $('#lesson-heading').textContent=['label','build'].includes(p?.kind)?visualActivities[l.id].title:['inspect','experiment','practice'].includes(p?.kind)?p.title:s.title;
   $('#lesson-source').href=l.source;
   $('#lesson-skill').innerHTML='<option value="">AP skills</option>'+l.nodes.map(id=>`<option value="${id}">${esc(api.nodeLabel(id))}</option>`).join('');
-  $('#lesson-feedback').hidden=true;
+  $('#lesson-feedback').hidden=true;$('#lesson-content').hidden=!!activity&&!(activity==='diagram'&&s.type==='observe');
+  panel.querySelector('.lesson-references').open=false;
   if(s.type==='question'){
    $('#lesson-content').innerHTML=`<p class="lesson-prompt">${esc(s.prompt)}</p><div class="lesson-choices" role="group" aria-label="Choose an explanation">${s.options.map((o,i)=>`<button data-answer="${o.id}" aria-pressed="${a?.choice===o.id}"><span>${String.fromCharCode(65+i)}</span>${esc(o.text)}</button>`).join('')}</div>`;
    if(a?.choice){const chosen=s.options.find(o=>o.id===a.choice);$('#lesson-feedback').hidden=false;$('#lesson-feedback').dataset.result=a.choice===s.correct?'correct':'retry';$('#lesson-feedback').innerHTML=`<b>${a.choice===s.correct?'Correct.':'Review the concept.'}</b><p>${esc(chosen.feedback)}</p>`;}
@@ -64,33 +87,23 @@ export function createLessonUI(api){
    const shown=revealed.has(key())||!!a?.rating;
    $('#lesson-content').innerHTML=`<p class="lesson-prompt">${esc(s.prompt)}</p><label class="sr-only" for="lesson-response">Your explanation</label><textarea id="lesson-response" rows="3" maxlength="2000" placeholder="Write your explanation before revealing the comparison…">${esc(a?.text||'')}</textarea><button id="lesson-reveal" ${shown?'hidden':''} ${(a?.text?.trim().length||0)<12?'disabled':''}>Compare your explanation</button>${shown?`<div class="lesson-rubric"><b>Check for these ideas</b><ul>${s.rubric.map(p=>`<li>${esc(p)}</li>`).join('')}</ul><details><summary>One possible explanation</summary><p>${esc(s.sample)}</p></details><div class="self-check" role="group" aria-label="Assess your explanation"><button data-rating="again" aria-pressed="${a?.rating==='again'}">I need more practice</button><button data-rating="ready" aria-pressed="${a?.rating==='ready'}">I included both ideas</button></div></div>`:''}`;
   }else{
-   $('#lesson-content').innerHTML=`<p>${esc(s.body)}</p>${canPlay()?'<div class="lesson-practice-links"><button data-open-visual>Label & build →</button><button data-open-practice>Practice questions →</button></div>':''}`;
+   $('#lesson-content').innerHTML=`<p>${esc(s.body)}</p>`;
   }
-  $('#lesson-tabs').hidden=!canPlay();$('#lesson-tabs').innerHTML='';
-  $('#lesson-content').hidden=false;$('#lesson-content').removeAttribute('role');$('#lesson-content').removeAttribute('aria-labelledby');
-  panel.querySelector('.lesson-references').open=false;
-  $('#lesson-live').hidden=!canPlay();
-  $('#lesson-live').innerHTML='';lastCue='';lastDiagram='';
+  $('#lesson-live').hidden=!activity;$('#lesson-live').innerHTML='';lastCue='';lastDiagram='';
   const stages=activities[l.id]?.stages;
   $('#lesson-stage-nav').hidden=!canPlay()||!stages;
   $('#lesson-stage-select').innerHTML=stages?stages.map((stage,i)=>`<option value="${i}">${esc(stage.title)}</option>`).join(''):'';
-  if(canPlay()){
+  if(activity){
    labData[l.id]??={condition:activities[l.id].options[0].id,prediction:'',runs:[]};
-   $('#lesson-live').innerHTML=activityMarkup(l.id,labData[l.id]);
-   createLessonQuestions($('#check-pane'),l.id,storage);
-   visualUI=createVisualPractice({container:$('#visual-practice'),activity:visualActivities[l.id],storage,has3D:!!api.scene.renderer,onScene:showPuzzle,onRestore:restorePuzzle});
-   $('#lesson-tabs').append($('#lesson-live .activity-tabs'));
-   $('#experiment-pane .experiment-question').hidden=s.title===activities[l.id].prompt;
-   $('#lesson-content').setAttribute('role','tabpanel');$('#lesson-content').setAttribute('aria-labelledby','read-tab');
-   if(s.type==='experiment'&&l.id==='selection')$('#diagram-pane').insertAdjacentHTML('afterbegin','<label class="lesson-condition">Relative survival<select id="lesson-environment"><option value="favor-a">Favor aa</option><option value="neutral">Equal fitness</option><option value="favor-A">Favor AA</option></select></label>');
-   $('#lesson-cues').innerHTML=s.cues.map(c=>`<button data-lesson-at="${c.at}" aria-pressed="false">${esc(c.title)}</button>`).join('');
-   $('#experiment-status').textContent='Choose Run experiment to apply this condition.';
-   renderRuns();selectActivity(s.type==='experiment'?'experiment':s.type==='observe'?'diagram':'read');
+   $('#lesson-live').innerHTML=activityMarkup(l.id,labData[l.id],activity);
+   if(activity==='check')questionUI=createLessonQuestions($('#check-pane'),l.id,storage,{index:p.question,onChange:syncFooter});
+   if(['label','build'].includes(activity))visualUI=createVisualPractice({container:$('#visual-practice'),activity:visualActivities[l.id],storage,mode:activity,has3D:!!api.scene.renderer,onScene:showPuzzle,onRestore:restorePuzzle,onChange:syncFooter});
+   if(activity==='diagram'&&l.id==='selection')$('#diagram-pane').insertAdjacentHTML('afterbegin','<label class="lesson-condition">Relative survival<select id="lesson-environment"><option value="favor-a">Favor aa</option><option value="neutral">Equal fitness</option><option value="favor-A">Favor AA</option></select></label>');
+   if($('#lesson-environment'))$('#lesson-environment').value=api.scene.environment;
+   if(activity==='diagram')$('#lesson-cues').innerHTML=s.cues.map(c=>`<button data-lesson-at="${c.at}" aria-pressed="false">${esc(c.title)}</button>`).join('');
+   if(activity==='experiment'){$('#experiment-status').textContent='Choose a condition and run the model to compare outcomes.';renderRuns();}
   }
-  $('#lesson-back').disabled=active==='review'?reviewIndex===0:stepIndex===0;
-  $('#lesson-next').disabled=!isAnswered(s,a);
-  $('#lesson-next').textContent=(active==='review'?reviewIndex===reviewQueue.length-1:stepIndex===l.steps.length-1)?'Finish →':'Continue →';
-  if(canPlay())onFrame(api.snapshot());
+  syncFooter();if(canPlay())onFrame(api.snapshot());
  }
  function record(response){
   const l=lesson(),s=step(),id=key();
@@ -101,21 +114,23 @@ export function createLessonUI(api){
    if(assessed&&!old?.recorded){progress=recordReview(progress,id,s.type==='question'?response.choice===s.correct:response.rating==='ready');reviewAnswers[id].recorded=true;persist();}
   }else{progress=answerStep(progress,l.id,s.id,response);persist();}
  }
+ function movePart(index){const previous=stepIndex;flowIndex=index;stepIndex=part().step;showStep({keepModel:previous===stepIndex,animate:true});}
  function next(){
-  const s=step();if(!s||!isAnswered(s,answer()))return;
+  if(!active||transition||panel.dataset.type==='complete'||$('#lesson-next').disabled)return;
+  if(visualUI&&!visualUI.state.checked){visualUI.check();return;}
   if(active==='review'){
-   if(reviewIndex<reviewQueue.length-1){reviewIndex++;showStep();}else finish();
-  }else if(stepIndex<lesson().steps.length-1){stepIndex++;showStep();}else{
+   if(reviewIndex<reviewQueue.length-1){reviewIndex++;showStep({animate:true});}else finish();
+  }else if(flowIndex<flow().length-1)movePart(flowIndex+1);else{
    const missing=lesson().steps.findIndex(s=>!isAnswered(s,progress.lessons[active]?.answers[s.id]));
-   if(missing>=0){stepIndex=missing;showStep();return;}
+   if(missing>=0){movePart(resolveLessonPart(lesson(),{step:missing}));return;}
    progress=finishLesson(progress,active);persist();finish();
   }
  }
- function back(){if(active==='review'){if(reviewIndex>0){reviewIndex--;showStep();}}else if(stepIndex>0){stepIndex--;showStep();}}
+ function back(){if(!active||transition||panel.dataset.type==='complete')return;if(active==='review'){if(reviewIndex>0){reviewIndex--;showStep({animate:true});}}else if(flowIndex>0)movePart(flowIndex-1);}
  function finish(){
   const l=lesson(),review=active==='review';api.scene.playProcess(false);panel.dataset.play='false';panel.dataset.type='complete';
   $('#lesson-heading').textContent=review?'Review complete':`${l.title} · complete`;
-  $('#lesson-kind').textContent='Keep the idea available';$('#lesson-live').hidden=true;$('#lesson-tabs').hidden=true;$('#lesson-content').hidden=false;$('#lesson-feedback').hidden=true;
+  $('#lesson-kind').textContent='Keep the idea available';$('#lesson-live').hidden=true;$('#lesson-up-next').textContent='';$('#lesson-content').hidden=false;$('#lesson-feedback').hidden=true;
   $('#lesson-stage-nav').hidden=true;
   const choices=checkpoints(l).filter(s=>s.type==='question'),correct=review?0:choices.filter(s=>progress.lessons[active].answers[s.id]?.firstCorrect).length;
   const recall=review?null:progress.lessons[active].answers[checkpoints(l).find(s=>s.type==='recall').id];
@@ -125,20 +140,12 @@ export function createLessonUI(api){
   $('#lesson-counter').textContent='Finished';$('#lesson-back').disabled=true;$('#lesson-next').hidden=true;changed();$('#lesson-heading').focus({preventScroll:true});
  }
  function exit({update=true}={}){
-  if(!active)return;visualUI?.destroy();visualUI=null;running=null;savePosition();active=null;panel.hidden=true;document.body.classList.remove('lesson-mode');$('#lesson-next').hidden=false;viewer.append(player);api.onExit?.();if(update)changed();
+  if(!active)return;transition?.cancel();transition=null;visualUI?.destroy();visualUI=null;running=null;savePosition();active=null;panel.hidden=true;document.body.classList.remove('lesson-mode');$('#lesson-next').hidden=false;viewer.append(player);api.onExit?.();if(update)changed();
  }
  function renderRuns(){
   const target=$('#experiment-history');if(!target||!lesson())return;
   const id=lesson().id,runs=labData[id]?.runs||[];
   target.innerHTML=runs.length?`<table class="experiment-results"><caption>Recent runs · same starting conditions</caption><thead><tr><th>Condition</th><th>Result</th></tr></thead><tbody>${runs.map(r=>`<tr><td>${esc(activities[id].options.find(o=>o.id===r.condition).label)}</td><td>${esc(r.result)}<details><summary>Your prediction</summary><p>${esc(r.prediction||'No prediction recorded.')}</p></details></td></tr>`).join('')}</tbody></table>`:'';
- }
- function selectActivity(name,focus=false){
-  visualUI?.setVisible(name==='diagram');
-  $('#lesson-live').hidden=name==='read';panel.dataset.activity=name;
-  for(const button of panel.querySelectorAll('[data-activity-tab]')){
-   const selected=button.dataset.activityTab===name;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;
-   $('#'+button.getAttribute('aria-controls')).hidden=!selected;if(selected&&focus)button.focus();
-  }
  }
  function runExperiment(){
   const id=lesson().id,saved=labData[id];
@@ -150,15 +157,17 @@ export function createLessonUI(api){
   if(api.scene.reducedMotion)api.scene.seekProcess(1);else api.scene.playProcess(true);
  }
  function onFrame(snapshot){
-  if(!active||!canPlay()||!snapshot||snapshot.id!==step().view.process||panel.dataset.stepKey!==key()||panel.dataset.type==='complete'||!$('#lesson-cues'))return;
-  const cues=step().cues,index=Math.max(0,cues.findLastIndex(c=>snapshot.t>=c.at)),cue=cues[index];
-  const caption=(snapshot.id==='translation'||snapshot.id.startsWith('topic-'))||snapshot.condition&&snapshot.condition!=='normal'?snapshot.caption:cue.text;
-  const cueKey=`${key()}:${index}:${caption}`;
-  if(lastCue!==cueKey){lastCue=cueKey;$('#lesson-cue-text').textContent=caption;for(const [i,b]of [...$('#lesson-cues').children].entries())b.setAttribute('aria-pressed',String(i===index));}
-  const drawing=`${key()}:${Math.floor(snapshot.t*40)}:${snapshot.condition||''}`;
-  if(lastDiagram!==drawing){lastDiagram=drawing;$('#lesson-diagram').innerHTML=diagramSVG(lesson().id,snapshot);}
-  const metrics=snapshot.metrics.map(([label,value])=>`${label}: ${value}`).join('  ·  ');
-  if($('#lesson-live-metrics').textContent!==metrics)$('#lesson-live-metrics').textContent=metrics;
+  if(!active||!canPlay()||!snapshot||snapshot.id!==step().view.process||panel.dataset.stepKey!==key()||panel.dataset.type==='complete')return;
+  if($('#lesson-cues')){
+   const cues=step().cues,index=Math.max(0,cues.findLastIndex(c=>snapshot.t>=c.at)),cue=cues[index];
+   const caption=(snapshot.id==='translation'||snapshot.id.startsWith('topic-'))||snapshot.condition&&snapshot.condition!=='normal'?snapshot.caption:cue.text;
+   const cueKey=`${key()}:${index}:${caption}`;
+   if(lastCue!==cueKey){lastCue=cueKey;$('#lesson-cue-text').textContent=caption;for(const [i,b]of [...$('#lesson-cues').children].entries())b.setAttribute('aria-pressed',String(i===index));}
+   const drawing=`${key()}:${Math.floor(snapshot.t*40)}:${snapshot.condition||''}`;
+   if(lastDiagram!==drawing){lastDiagram=drawing;$('#lesson-diagram').innerHTML=diagramSVG(lesson().id,snapshot);}
+   const metrics=snapshot.metrics.map(([label,value])=>`${label}: ${value}`).join('  ·  ');
+   if($('#lesson-live-metrics').textContent!==metrics)$('#lesson-live-metrics').textContent=metrics;
+  }
   const stages=activities[lesson().id]?.stages;
   if(stages){$('#lesson-stage-select').value=String(snapshot.phase);$('#lesson-stage-back').disabled=snapshot.phase===0;$('#lesson-stage-next').disabled=snapshot.arrested||snapshot.phase===stages.length-1;}
   if(running&&snapshot.t>=1){
@@ -175,7 +184,7 @@ export function createLessonUI(api){
    scene.focus({id:'lesson-puzzle',data:{id:`${activity.id}@${activity.version}`,activity}});scene.setPaused(true);scene.setLabels(true);
   }
   panel.dataset.visualWorkspace='true';
-  scene.renderer?.domElement.setAttribute('aria-label','3D assembly workspace. Select a piece, then a numbered position. The Visual lab also provides keyboard controls.');
+  scene.renderer?.domElement.setAttribute('aria-label','3D assembly workspace. Select a piece, then a numbered position. The lesson also provides keyboard controls.');
   scene.activeView?.processRig?.place?.(placements,selected,correct);
  }
  function restorePuzzle(){
@@ -185,19 +194,11 @@ export function createLessonUI(api){
   scene.focus(saved.focus);scene.environment=saved.environment;scene.setProcess(saved.process);scene.experimentOptions={...saved.options};scene.seekProcess(saved.at);scene.playProcess(saved.playing);scene.setLabels(saved.labels);scene.setPaused(true);
   if(saved.camera)scene.camera.position.copy(saved.camera);if(saved.target)scene.controls.target.copy(saved.target);
  }
- panel.addEventListener('keydown',event=>{
-  const tab=event.target.closest('[data-activity-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-  event.preventDefault();event.stopPropagation();const names=['read','diagram','experiment','check'],i=names.indexOf(tab.dataset.activityTab);
-  selectActivity(names[event.key==='Home'?0:event.key==='End'?3:(i+(event.key==='ArrowRight'?1:3))%4],true);
- });
  function selectStage(index){const stages=activities[lesson()?.id]?.stages;if(!stages?.[index])return;running=null;api.scene.playProcess(false);api.scene.seekProcess(stages[index].at);}
  $('#lesson-stage-select').onchange=event=>selectStage(Number(event.target.value));
  $('#lesson-stage-back').onclick=()=>selectStage(Number($('#lesson-stage-select').value)-1);
  $('#lesson-stage-next').onclick=()=>selectStage(Number($('#lesson-stage-select').value)+1);
  panel.addEventListener('click',event=>{
-  if(event.target.closest('[data-open-visual]')){selectActivity('diagram');panel.querySelector('[data-visual-mode=label]').click();return;}
-  if(event.target.closest('[data-open-practice]')){selectActivity('check',true);return;}
-  const tab=event.target.closest('[data-activity-tab]');if(tab){selectActivity(tab.dataset.activityTab);return;}
   if(event.target.id==='experiment-run'){runExperiment();return;}
   if(event.target.id==='experiment-reset'){running=null;api.scene.playProcess(false);api.scene.seekProcess(0);$('#experiment-status').textContent='Reset to the same starting conditions.';return;}
 
@@ -210,5 +211,5 @@ export function createLessonUI(api){
  panel.addEventListener('input',event=>{if(event.target.id==='experiment-prediction'){labData[lesson().id].prediction=event.target.value;saveExperiments(storage,labData);return;}if(event.target.id==='lesson-response'){record({text:event.target.value,rating:null});$('#lesson-reveal').disabled=event.target.value.trim().length<12;$('#lesson-next').disabled=true;for(const button of panel.querySelectorAll('[data-rating]'))button.setAttribute('aria-pressed','false');}});
  panel.addEventListener('change',event=>{if(event.target.id==='experiment-condition'){running=null;api.scene.playProcess(false);labData[lesson().id].condition=event.target.value;saveExperiments(storage,labData);$('#experiment-status').textContent='Choose Run experiment to apply this condition.';return;}if(event.target.id==='lesson-environment'){running=null;api.scene.setEnvironment(event.target.value);$('#selection-environment').value=event.target.value;api.scene.playProcess(api.canAutoplay());}if(event.target.id==='lesson-skill'&&event.target.value){api.openNode(event.target.value);event.target.value='';}});
  $('#lesson-catalog-button').onclick=openCatalog;$('#lesson-exit').onclick=()=>exit();$('#lesson-next').onclick=next;$('#lesson-back').onclick=back;
- return {handleVisualPick:selection=>visualUI?.pick(selection)||false,openCatalog,start,startReview,exit,onFrame,next,back,canPlay,get persistent(){return persistent;},get progress(){return progress;},get active(){return active;},get stepIndex(){return stepIndex;},has:id=>!!lessonById(id)};
+ return {handleVisualPick:selection=>visualUI?.pick(selection)||false,openCatalog,start,startReview,exit,onFrame,next,back,canPlay,get persistent(){return persistent;},get progress(){return progress;},get active(){return active;},get stepIndex(){return stepIndex;},get part(){return part()?.id;},has:id=>!!lessonById(id)};
 }

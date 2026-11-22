@@ -1,4 +1,4 @@
-import {showLessonDiagram} from './ui-helpers.mjs';
+import {showLessonDiagram,showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -26,7 +26,7 @@ try{
   await showLessonDiagram(p);await p.locator('[data-lesson-at]').nth(2).click();assert.ok(Number(await p.locator('#process-range').inputValue())>.6);
   assert.equal(await p.locator('.lesson-diagram').count(),1);
   if(['1.1','2.2','3.4','4.5','5.1','6.3','7.9','8.4'].includes(l.topic))await p.screenshot({path:`test-results/course/topic-${l.topic}.png`});
-  await p.locator('#experiment-tab').click();await p.locator('#experiment-prediction').fill(`My prediction for ${l.topic}: changing this condition will test the mechanism.`);
+  await showLessonPart(p,'experiment');await p.locator('#experiment-prediction').fill(`My prediction for ${l.topic}: changing this condition will test the mechanism.`);
   let renderedChange=!before.equals(await p.locator('#scene canvas').screenshot());
   const config=labs[l.labKind];
   for(const option of [config.options[0],config.options[1]]){
@@ -40,7 +40,7 @@ try{
   if(errors.length)throw new Error(`${l.topic}: ${errors.join('; ')}`);
   check(`${l.topic}: 3D model, diagram, and both experiment conditions`);
  }
- await p.reload();await p.locator('#experiment-tab').click();assert.equal(await p.locator('.experiment-results tbody tr').count(),2);assert.match(await p.locator('#experiment-prediction').inputValue(),/8.7/);
+ await p.reload();await showLessonPart(p,'experiment');assert.equal(await p.locator('.experiment-results tbody tr').count(),2);assert.match(await p.locator('#experiment-prediction').inputValue(),/8.7/);
  await p.locator('#lesson-exit').click();assert.notEqual(await p.locator('#scene').getAttribute('data-model'),'lesson-lab');assert.equal(await p.locator('.scale-dock').isVisible(),true);
  await go(p,'topic-5-3');await p.locator('#lesson-next').click();assert.equal(await p.locator('#lesson-live').isHidden(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);
  await p.locator('[data-answer="alternative-1"]').click();await p.locator('[data-answer="correct"]').click();await p.reload();assert.match(await p.locator('#lesson-feedback').textContent(),/Each parent/);

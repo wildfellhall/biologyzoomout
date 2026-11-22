@@ -44,7 +44,7 @@ try {
   assert.equal(answer, 'down');
   await page.goBack(); await page.locator('#lesson-dashboard').waitFor();
   await page.locator('#lesson-search').fill('Crossing a membrane'); await page.locator('[data-lesson="membranes"]').click();
-  assert.equal(await page.locator('#lesson-counter').textContent(), '2 / 6');
+  assert.equal(await page.locator('#lesson-counter').textContent(), '2 / 11');
   await page.locator('#home').click(); await page.locator('#home-page').waitFor();
   check('Lessons opens a dashboard, starts and resumes saved practice, and Back restores the dashboard');
 

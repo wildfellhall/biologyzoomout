@@ -1,3 +1,4 @@
+import {showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -34,7 +35,7 @@ try{
  await go(p,'#practice&type=mcq&item=ap-3-1');assert.equal(await p.locator('.practice-mcq-stimulus table').count(),1);assert.equal(await p.locator('.practice-feedback').count(),0);await p.screenshot({path:'test-results/practice/stimulus-mcq.png'});
 
  for(const topic of ['1-1','2-7','3-5','4-5','5-1','6-4','7-5','8-2']){
-  await p.goto(base+`#lesson=topic-${topic}`);await p.locator('#check-tab').click();assert.equal(await p.locator('[data-quick-choice]').count(),4);assert.ok(!(await p.locator('#check-pane').innerText()).includes('response variable'));await p.locator('[data-quick-choice]').first().click();assert.ok((await p.locator('#quick-feedback').innerText()).length>20);
+  await p.goto(base+`#lesson=topic-${topic}`);await showLessonPart(p,'practice-1');assert.equal(await p.locator('[data-quick-choice]').count(),4);assert.ok(!(await p.locator('#check-pane').innerText()).includes('response variable'));if(await p.locator('[data-quick-choice]').first().isDisabled()){assert.equal(await p.locator('#quick-feedback').isVisible(),true);await p.locator('[data-question-retry]').click();}await p.locator('[data-quick-choice]').first().click();assert.ok((await p.locator('#quick-feedback').innerText()).length>20);
   if(topic==='6-4'){await p.goto(base+'#practice&type=mcq&item=concept-6.4');await p.locator('.practice-feedback').waitFor();assert.match(await p.locator('.practice-attempt-note').innerText(),/1 attempt/);}
 
  }

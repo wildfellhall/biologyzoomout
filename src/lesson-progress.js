@@ -1,4 +1,5 @@
 import {lessons,lessonById,checkpoints,lessonKey} from './lessons.js';
+import {lessonFlow,resolveLessonPart} from './lesson-flow.js';
 
 export const STORAGE_KEY='biology-zoomout-lessons-v1';
 export const DAY=86400000;
@@ -15,6 +16,7 @@ export function loadProgress(storage){
   for(const lesson of lessons){
    const saved=raw.lessons?.[lesson.id];if(!saved||typeof saved!=='object')continue;
    const entry={step:Math.max(0,Math.min(lesson.steps.length-1,Number.isInteger(saved.step)?saved.step:0)),answers:{},finishedAt:time(saved.finishedAt)};
+   entry.part=lessonFlow(lesson)[resolveLessonPart(lesson,{step:entry.step,part:saved.part})].id;
    for(const step of checkpoints(lesson)){
     const answer=saved.answers?.[step.id];if(!answer||typeof answer!=='object')continue;
     if(step.type==='question'&&!step.options.some(o=>o.id===answer.choice))continue;
@@ -30,10 +32,11 @@ export function loadProgress(storage){
  return clean;
 }
 export function saveProgress(progress,storage){try{if(!storage)return false;storage.setItem(STORAGE_KEY,JSON.stringify(progress));return true;}catch{return false;}}
-export function beginLesson(progress,id,step=0){
+export function beginLesson(progress,id,step=0,part=undefined){
  const lesson=lessonById(id);if(!lesson)return progress;
  const next=structuredClone(progress);next.lastLesson=id;
- next.lessons[id]={answers:{},finishedAt:null,...next.lessons[id],step:Math.max(0,Math.min(lesson.steps.length-1,Number.isInteger(step)?step:0))};return next;
+ next.lessons[id]={answers:{},finishedAt:null,...next.lessons[id],step:Math.max(0,Math.min(lesson.steps.length-1,Number.isInteger(step)?step:0))};
+ next.lessons[id].part=lessonFlow(lesson)[resolveLessonPart(lesson,{step:next.lessons[id].step,part:part===undefined?next.lessons[id].part:part})].id;return next;
 }
 export function answerStep(progress,id,stepId,response){
  const lesson=lessonById(id),step=lesson?.steps.find(s=>s.id===stepId);if(!step||!['question','recall'].includes(step.type))return progress;

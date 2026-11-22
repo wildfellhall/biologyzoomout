@@ -1,3 +1,4 @@
+import {showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -17,7 +18,7 @@ try{
  for(const [kind,topic]of [['mitosis','4-5'],['meiosis','5-1']]){
   await go(p,topic);assert.equal(await p.locator('#lesson-stage-select option').count(),divisionStages[kind].length);
   assert.equal(await p.locator('#process-panel').getAttribute('data-playing'),'false');
-  const initial=await p.locator('#scene canvas').screenshot();await p.locator('#diagram-tab').click();
+  const initial=await p.locator('#scene canvas').screenshot();await showLessonPart(p,'observe');
   for(const [i,s]of divisionStages[kind].entries()){
    await p.locator('#lesson-stage-select').selectOption(String(i));assert.equal(await p.locator('#lesson-stage-select').inputValue(),String(i));
    assert.equal(Number(await p.locator('#process-range').inputValue()),s.at);assert.equal(await p.locator('#lesson-cue-text').textContent(),s.text);
@@ -28,7 +29,7 @@ try{
   for(const [name,t]of kind==='mitosis'?[['metaphase',.49],['anaphase',.65],['daughters',1]]:[['crossing-over',.28],['anaphase-I',.50],['interkinesis',.65],['metaphase-II',.78],['products',1]]){
    await seek(p,t);await p.screenshot({path:`test-results/division/${kind}-${name}.png`});
   }
-  await p.locator('#experiment-tab').click();await p.locator('#experiment-condition').selectOption(kind==='mitosis'?'blocked':'nondisjunction');
+  await showLessonPart(p,'experiment');await p.locator('#experiment-condition').selectOption(kind==='mitosis'?'blocked':'nondisjunction');
   await p.locator('#experiment-prediction').fill(kind==='mitosis'?'Sisters remain together and cytokinesis does not finish.':'Both long homologs go to one pole, leaving an unequal chromosome complement.');
   await p.locator('#experiment-run').click();assert.match(await p.locator('#experiment-status').textContent(),kind==='mitosis'?/Metaphase arrest/:/3 \/ 3 \/ 1 \/ 1/);
   await p.screenshot({path:`test-results/division/${kind}-perturbation.png`});
@@ -36,8 +37,8 @@ try{
   else for(const condition of ['no-crossover','alternate']){
    await p.locator('#experiment-condition').selectOption(condition);await p.locator('#experiment-run').click();assert.match(await p.locator('#experiment-status').textContent(),/2 \/ 2 \/ 2 \/ 2/);
   }
-  await p.reload();await p.locator('#experiment-tab').click();assert.ok(await p.locator('.experiment-results tbody tr').count()>0);
-  await p.locator('#lesson-next').click();assert.equal(await p.locator('#lesson-stage-nav').isHidden(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);
+  await p.reload();await showLessonPart(p,'experiment');assert.ok(await p.locator('.experiment-results tbody tr').count()>0);
+  await showLessonPart(p,'predict');assert.equal(await p.locator('#lesson-stage-nav').isHidden(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);
   await p.locator('[data-answer="correct"]').click();await p.locator('#lesson-next').click();await p.locator('#lesson-stage-nav').waitFor();
   await p.locator('#lesson-exit').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'animal-cell');
   // Reuse the cached division rig after another model has been built.
@@ -52,7 +53,7 @@ try{
   const fits=await m.evaluate(()=>{const box=id=>document.querySelector(id).getBoundingClientRect(),c=box('#scene canvas'),n=box('#lesson-stage-nav'),bar=box('#lesson-player-slot'),p=box('#lesson-panel');return document.documentElement.scrollWidth<=innerWidth&&n.width>150&&c.height>100&&((c.right<=p.left+.5&&c.bottom<=n.top+.5)||(c.bottom<=n.top+.5&&bar.bottom<=p.top+.5));});
   assert.equal(fits,true,`${width}×${height}: model, stages and reader stay separate`);
   await m.screenshot({path:`test-results/division/phone-${width}.png`});
-  await m.locator('#experiment-tab').click();await m.locator('#experiment-run').click();assert.match(await m.locator('#experiment-status').textContent(),/2 \/ 2 \/ 2 \/ 2/);
+  await showLessonPart(m,'experiment');await m.locator('#experiment-run').click();assert.match(await m.locator('#experiment-status').textContent(),/2 \/ 2 \/ 2 \/ 2/);
  }
  await m.close();check('Stage controls and experiments fit portrait and landscape phones without covering the model');
  const a=await browser.newPage({viewport:{width:1280,height:900},reducedMotion:'no-preference'});observe(a);

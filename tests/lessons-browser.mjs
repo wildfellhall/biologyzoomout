@@ -1,4 +1,4 @@
-import {showLessonDiagram} from './ui-helpers.mjs';
+import {showLessonDiagram,showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -16,17 +16,17 @@ try{
  await p.addInitScript(()=>{const original=Date.now;Date.now=()=>original()+(window.__reviewDays||0)*86400000;});
  await go(p,'membranes');assert.equal(await p.locator('#scene').getAttribute('data-model'),'membrane');await next(p);
  assert.equal(await p.locator('#lesson-next').isDisabled(),true);
- await p.keyboard.press('ArrowRight');assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 6');
+ await p.keyboard.press('ArrowRight');assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 11');
  await p.locator('[data-answer="up"]').click();assert.match(await p.locator('#lesson-feedback').textContent(),/larger starting concentration/);
  await p.locator('[data-answer="down"]').click();await next(p);
  assert.equal(await p.locator('#process-panel').getAttribute('data-playing'),'false');
  await showLessonDiagram(p);await p.locator('[data-lesson-at="0.9"]').click();assert.match(await p.locator('#lesson-cue-text').textContent(),/do not stop moving/);
- await p.screenshot({path:'test-results/lessons/membrane-observation.png'});await next(p);await next(p);
+ await p.screenshot({path:'test-results/lessons/membrane-observation.png'});await showLessonPart(p,'transfer');
  await p.locator('[data-answer="balanced"]').click();await next(p);
  assert.equal(await p.locator('#lesson-reveal').isDisabled(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);
  const explanation='The channel provides a route through the lipid barrier. Net movement follows the concentration gradient without ATP.';
  await p.locator('#lesson-response').fill(explanation);await p.locator('#lesson-reveal').click();assert.equal(await p.locator('#lesson-next').isDisabled(),true);
- await p.locator('[data-rating="ready"]').click();await p.reload();await p.locator('#lesson-response').waitFor();assert.equal(await p.locator('#lesson-response').inputValue(),explanation);assert.equal(await p.locator('#lesson-counter').textContent(),'6 / 6');
+ await p.locator('[data-rating="ready"]').click();await p.reload();await p.locator('#lesson-response').waitFor();assert.equal(await p.locator('#lesson-response').inputValue(),explanation);assert.equal(await p.locator('#lesson-counter').textContent(),'11 / 11');
  await next(p);assert.match(await p.locator('#lesson-content').textContent(),/1 of 2 choice questions correct/);await p.screenshot({path:'test-results/lessons/completion.png'});
  check('Prediction feedback, recall gating, corrected first attempts, completion and reload/resume work');
  await p.locator('[data-finish="catalog"]').click();assert.match(await p.locator('#lesson-review-status').textContent(),/Next review/);
@@ -49,7 +49,7 @@ try{
  await go(m,'gradient',2);await showLessonDiagram(m);await m.locator('[data-lesson-at="0.58"]').click();await frame(m);
  const geometry=await m.evaluate(()=>{const c=document.querySelector('#scene canvas').getBoundingClientRect(),p=document.querySelector('#lesson-panel').getBoundingClientRect();return {fits:document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight,canvas:c.height,separated:c.bottom<=p.top};});
  assert.equal(geometry.fits,true);assert.equal(geometry.separated,true);assert.ok(geometry.canvas>150);
- await m.screenshot({path:'test-results/lessons/mobile-observation.png'});await next(m);await next(m);await m.screenshot({path:'test-results/lessons/mobile-practice.png'});
+ await m.screenshot({path:'test-results/lessons/mobile-observation.png'});await showLessonPart(m,'transfer');await m.screenshot({path:'test-results/lessons/mobile-practice.png'});
  await m.locator('[data-answer="less"]').click();await next(m);await m.locator('#lesson-response').fill('The membrane retains the proton gradient, and ATP synthase couples the proton return to ATP production.');await m.locator('#lesson-reveal').click();await m.locator('[data-rating="again"]').click();assert.equal(await m.locator('#lesson-next').isEnabled(),true);
  await m.locator('#lesson-catalog-button').click();await m.screenshot({path:'test-results/lessons/mobile-catalog.png'});await m.close();
  check('Phone lessons keep the canvas clear of the lesson card; practice, recall and catalog remain usable');

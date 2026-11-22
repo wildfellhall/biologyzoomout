@@ -1,3 +1,4 @@
+import {showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -24,20 +25,20 @@ try{
  await p.locator('[data-lesson="topic-6-2"]').click();await p.locator('#lesson-panel').waitFor();
  assert.equal(await p.locator('#lesson-dashboard').isHidden(),true);assert.equal(await p.locator('#lesson-content').isVisible(),true);assert.equal(await p.locator('#lesson-live').isHidden(),true);assert.equal(await p.locator('.lesson-references').getAttribute('open'),null);
  await p.screenshot({path:'test-results/dashboard/lesson-read.png'});
- await p.locator('#read-tab').focus();await p.keyboard.press('ArrowRight');assert.equal(await p.locator('#diagram-tab').getAttribute('aria-selected'),'true');assert.equal(await p.locator('#lesson-counter').textContent(),'1 / 6');
+ await p.locator('#lesson-next').focus();await p.keyboard.press('Enter');assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 11');await p.locator('[data-answer=correct]').click();await p.locator('#lesson-next').click();
  assert.equal(await p.locator('#lesson-content').isHidden(),true);assert.equal(await p.locator('#lesson-stages').getAttribute('open'),null);
  await p.locator('#lesson-stages summary').click();await p.locator('[data-lesson-at]').nth(2).click();await p.screenshot({path:'test-results/dashboard/lesson-diagram.png'});
- await p.locator('#experiment-tab').click();assert.equal(await p.locator('#diagram-pane').isHidden(),true);await p.locator('#experiment-condition').selectOption('ligase-off');await p.locator('#experiment-prediction').fill('New strands form, but nicks remain unsealed.');await p.locator('#experiment-run').click();assert.match(await p.locator('#experiment-status').textContent(),/Unsealed nicks: 5/);
- await p.locator('#lesson-next').click();assert.equal(await p.locator('#lesson-tabs').isHidden(),true);assert.equal(await p.locator('#lesson-next').isDisabled(),true);await p.locator('[data-answer="correct"]').click();
+ await showLessonPart(p,'experiment');assert.equal(await p.locator('#diagram-pane').count(),0);await p.locator('#experiment-condition').selectOption('ligase-off');await p.locator('#experiment-prediction').fill('New strands form, but nicks remain unsealed.');await p.locator('#experiment-run').click();assert.match(await p.locator('#experiment-status').textContent(),/Unsealed nicks: 5/);
+ await p.locator('#lesson-back').click();await p.locator('#lesson-back').click();assert.equal(await p.locator('[role=tablist]').count(),0);
  await p.goBack();await p.locator('#lesson-dashboard').waitFor();assert.match(p.url(),/unit=6/);assert.match(await p.locator('#lesson-resume').textContent(),/DNA Replication/);
- await p.locator('[data-resume="topic-6-2"]').click();assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 6');
- await p.locator('#lesson-next').click();assert.equal(await p.locator('#experiment-tab').getAttribute('aria-selected'),'true');assert.match(await p.locator('#experiment-prediction').inputValue(),/nicks/);assert.equal(await p.locator('.experiment-results tbody tr').count(),1);
- await p.locator('#lesson-next').click();await p.locator('#lesson-next').click();await p.locator('[data-answer="correct"]').click();await p.locator('#lesson-next').click();
+ await p.locator('[data-resume="topic-6-2"]').click();assert.equal(await p.locator('#lesson-counter').textContent(),'2 / 11');
+ await p.locator('#lesson-next').click();await p.locator('#lesson-next').click();assert.equal(await p.locator('#lesson-panel').getAttribute('data-part'),'experiment');assert.match(await p.locator('#experiment-prediction').inputValue(),/nicks/);assert.equal(await p.locator('.experiment-results tbody tr').count(),1);
+ await showLessonPart(p,'transfer');await p.locator('[data-answer="correct"]').click();await p.locator('#lesson-next').click();
  await p.locator('#lesson-response').fill('Each old strand templates a new strand. Polymerases extend new DNA in the five to three direction.');await p.locator('#lesson-reveal').click();await p.locator('[data-rating="ready"]').click();await p.locator('#lesson-next').click();
  await p.locator('[data-finish="catalog"]').click();assert.match(await p.locator('#dashboard-progress').textContent(),/1 of 60/);assert.match(await p.locator('#lesson-review-status').textContent(),/Next review/);
  await p.screenshot({path:'test-results/dashboard/progress.png'});
  await p.locator('#start-review').click();assert.equal(await p.locator('#lesson-feedback').isHidden(),true);await p.locator('#lesson-catalog-button').click();
- check('Lessons show one activity at a time; keyboard tabs, experiments, answers, resume, completion and reviews survive dashboard navigation');
+ check('Lessons show one activity at a time; guided navigation, experiments, answers, resume, completion and reviews survive dashboard navigation');
  await p.locator('#dashboard-explore').click();await p.locator('#explore-start').waitFor();assert.equal(await p.locator('#viewer').isHidden(),true);await p.locator('[data-start-view="paths"]').click();await p.locator('[data-start-path="dna"]').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'dna');assert.equal(await p.locator('#learn-toggle').getAttribute('aria-current'),null);await p.locator('#learn-toggle').click();await p.goBack();await p.locator('#viewer').waitFor();
  await p.locator('#home').click();await p.locator('#home-page').waitFor();await p.close();
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});watch(m);
@@ -45,10 +46,10 @@ try{
   await m.setViewportSize({width,height:844});await m.goto(base+'#lessons');await m.locator('.unit-card').first().waitFor();
   assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.querySelector('#lesson-dashboard').scrollWidth<=innerWidth&&document.querySelector('.brand').getBoundingClientRect().right<document.querySelector('.top-actions').getBoundingClientRect().left),true);
   assert.equal(await m.locator('.unit-card h3').evaluateAll(titles=>titles.every(title=>title.scrollWidth<=title.clientWidth)),true,'Unit titles fit inside their cards');
-  await m.screenshot({path:`test-results/dashboard/phone-${width}.png`});await m.locator('[data-course-unit="6"]').click();await m.locator('[data-lesson="topic-6-2"]').click();await frame(m);
+  await m.screenshot({path:`test-results/dashboard/phone-${width}.png`});await m.locator('[data-course-unit="6"]').click();await m.locator('[data-lesson="topic-6-2"]').click();await showLessonPart(m,'overview');await frame(m);
   assert.equal(await m.evaluate(()=>{const c=document.querySelector('#scene canvas').getBoundingClientRect(),p=document.querySelector('#lesson-panel').getBoundingClientRect();return c.height>180&&c.bottom<=p.top&&document.documentElement.scrollWidth<=innerWidth;}),true);
   assert.equal(await m.locator('#lesson-content').isVisible(),true);await m.screenshot({path:`test-results/dashboard/phone-read-${width}.png`});
-  await m.locator('#experiment-tab').click();assert.equal(await m.locator('#experiment-pane').isVisible(),true);await m.screenshot({path:`test-results/dashboard/phone-experiment-${width}.png`});
+  await showLessonPart(m,'experiment');assert.equal(await m.locator('#experiment-pane').isVisible(),true);await m.screenshot({path:`test-results/dashboard/phone-experiment-${width}.png`});
  }
  await m.close();check('Dashboard and focused lesson views fit 320–390px phones while keeping the model unobstructed');
  assert.deepEqual(errors,[]);await writeFile('test-results/dashboard/report.json',JSON.stringify({checks,errors},null,2));

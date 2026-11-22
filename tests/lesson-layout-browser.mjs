@@ -1,3 +1,4 @@
+import {showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -41,16 +42,16 @@ try{
   await p.screenshot({path:`test-results/lesson-layout/read-${width}x${height}.png`});
  }
  check('Full-height desktop, portrait tablet/phone and short landscape layouts use available space without overlap');
- await p.setViewportSize({width:1920,height:1080});await settle(p);await p.locator('#diagram-tab').click();
+ await p.setViewportSize({width:1920,height:1080});await settle(p);await showLessonPart(p,'observe');
  assert.ok((await p.locator('.lesson-diagram').boundingBox()).height>200,'Diagrams grow on a wide screen');
  await p.screenshot({path:'test-results/lesson-layout/diagram-wide.png'});
- await p.locator('#experiment-tab').click();await p.locator('#experiment-condition').selectOption('ligase-off');
+ await showLessonPart(p,'experiment');await p.locator('#experiment-condition').selectOption('ligase-off');
  await p.locator('#experiment-prediction').fill('DNA synthesis can continue, but the new strands retain unsealed nicks.');
  await p.locator('#experiment-run').click();assert.match(await p.locator('#experiment-status').textContent(),/Unsealed nicks: 5/);
  await p.screenshot({path:'test-results/lesson-layout/experiment-wide.png'});
  for(const [width,height]of [[390,844],[844,390],[1440,1000]]){
   await p.setViewportSize({width,height});await settle(p);
-  assert.equal(await p.locator('#experiment-tab').getAttribute('aria-selected'),'true');
+  assert.equal(await p.locator('#lesson-panel').getAttribute('data-part'),'experiment');
   assert.equal(await p.locator('#experiment-condition').inputValue(),'ligase-off');
   assert.match(await p.locator('#experiment-prediction').inputValue(),/unsealed nicks/);
   assert.equal(await p.locator('.experiment-results tbody tr').count(),1);
@@ -59,7 +60,7 @@ try{
   await p.keyboard.press('End');assert.equal(await p.locator('#process-range').inputValue(),'1');
  }
  check('Large diagrams and experiments remain interactive; rotating/resizing preserves conditions, predictions and results');
- await p.locator('#lesson-next').click();assert.equal(await p.locator('#lesson-next').isDisabled(),true);
+ await showLessonPart(p,'predict');assert.equal(await p.locator('#lesson-next').isDisabled(),true);
  await settle(p);assert.equal(await p.locator('#lesson-player-slot').isHidden(),true);
  const question=await geometry(p);assert.ok(question.canvas.right<=question.panel.x);
  assert.equal(question.canvas.bottom,question.height,'Question models reclaim the playback area');

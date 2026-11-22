@@ -2,4 +2,4 @@
 @media(max-width:639px){.visual-modes{gap:5px}.visual-task-heading h3{font-size:22px}.visual-bank button{padding:10px;font-size:12px}.visual-bank svg{width:32px;height:30px}.visual-bank small{display:none}.visual-positions li>button:first-child{padding:10px}.visual-board{padding:4px}.visual-positions small{font-size:11px}.visual-actions{gap:10px}}
 
 .visual-diagram-position{cursor:pointer;outline:none}.visual-diagram-position:hover>rect,.visual-diagram-position:focus-visible>rect{stroke:var(--accent);stroke-width:2;fill:#c2cfb622}#lesson-panel[data-visual-workspace=true] #lesson-player-slot{display:none}
-@media(min-width:1000px){body.lesson-mode:has(#lesson-panel[data-play=true][data-activity=diagram][data-visual-workspace=true]){--lesson-column:clamp(420px,42vw,700px)}}
+@media(min-width:1000px){body.lesson-mode:has(#lesson-panel[data-activity=build][data-visual-workspace=true]){--lesson-column:clamp(420px,42vw,700px)}}

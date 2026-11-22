@@ -1,4 +1,4 @@
-import {showLessonDiagram} from './ui-helpers.mjs';
+import {showLessonDiagram,showLessonPart} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -15,7 +15,7 @@ try{
  const p=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});observe(p);
  for(const l of lessons.filter(l=>!l.topic)){
   await go(p,l.id);assert.equal(await p.locator('#lesson-panel').getAttribute('data-play'),'true');
-  assert.equal(await p.locator('.lesson-diagram').count(),1);assert.equal(await p.locator('#scene canvas').count(),1);
+  assert.equal(await p.locator('.lesson-diagram').count(),0);assert.equal(await p.locator('#scene canvas').count(),1);
   await showLessonDiagram(p);await p.locator('[data-lesson-at]').nth(2).click();
   assert.ok(Number(await p.locator('#process-range').inputValue())>0);
   assert.ok((await p.locator('#lesson-cue-text').textContent()).length>30);
@@ -25,9 +25,9 @@ try{
    await showLessonDiagram(p);await p.locator('[data-lesson-at="0.25"]').click();
   }
   if(['replication','translation','polypeptide'].includes(l.id))await p.screenshot({path:`test-results/interactive-lessons/${l.id}.png`});
-  await p.locator('#check-tab').click();assert.equal(await p.locator('#quick-feedback').isHidden(),true);
+  await showLessonPart(p,'practice-1');assert.equal(await p.locator('#quick-feedback').isHidden(),true);
   await p.locator('[data-quick-choice]').first().click();assert.equal(await p.locator('#quick-feedback').isVisible(),true);
-  await p.locator('#experiment-tab').click();await p.locator('#experiment-prediction').fill(`I predict that changing the ${l.id} condition will change the result because the mechanism needs that component.`);
+  await showLessonPart(p,'experiment');await p.locator('#experiment-prediction').fill(`I predict that changing the ${l.id} condition will change the result because the mechanism needs that component.`);
   await p.locator('#experiment-run').click();await p.waitForFunction(()=>document.querySelector('#experiment-status').textContent.includes('Run complete'));
   const control=await p.locator('.experiment-results tbody tr').last().textContent();
   const [condition,result]=conditions[l.id];await p.locator('#experiment-condition').selectOption(condition);await p.locator('#experiment-run').click();
@@ -35,17 +35,17 @@ try{
   const variant=await p.locator('.experiment-results tbody tr').last().textContent();
   assert.match(variant,result);assert.notEqual(variant,control);
   if(l.id==='membranes'){
-   await p.locator('#diagram-tab').click();assert.match(await p.locator('#lesson-cue-text').textContent(),/channel is closed/);
+   await showLessonPart(p,'observe');assert.match(await p.locator('#lesson-cue-text').textContent(),/channel is closed/);
   }
   if(l.id==='light'||l.id==='polypeptide'){
    const label=l.id==='light'?'ATP':'New C–N peptide bond';
    await p.waitForFunction(text=>{const labels=[...document.querySelectorAll('.view-labels:not([hidden]) .process-label')].filter(el=>el.textContent===text);return labels.length>0&&labels.every(el=>el.hidden);},label);
   }
   if(l.id==='polypeptide'){
-   await p.locator('#diagram-tab').click();assert.match(await p.locator('#lesson-diagram').textContent(),/Uncharged tRNA/);
-   await p.locator('#diagram-tab').focus();await p.keyboard.press('ArrowRight');
-   assert.equal(await p.locator('#experiment-tab').getAttribute('aria-selected'),'true');
-   assert.equal(await p.locator('#lesson-counter').textContent(),'1 / 6');
+   await showLessonPart(p,'observe');assert.match(await p.locator('#lesson-diagram').textContent(),/Uncharged tRNA/);
+   await p.locator('#lesson-next').focus();await p.keyboard.press('Enter');
+   assert.equal(await p.locator('#lesson-panel').getAttribute('data-part'),'experiment');
+   assert.equal(await p.locator('#lesson-counter').textContent(),'4 / 11');
   }
   if(l.id==='light'){
    await p.locator('#lesson-exit').click();assert.equal(await p.locator('#lesson-panel').isHidden(),true);
@@ -53,7 +53,7 @@ try{
   }
   check(`${l.title}: 3D playback, linked diagram, question feedback and controlled comparison work`);
  }
- await p.reload();await p.locator('#experiment-tab').click();assert.equal(await p.locator('.experiment-results tbody tr').count(),2);assert.match(await p.locator('#experiment-prediction').inputValue(),/polypeptide/);
+ await p.reload();await showLessonPart(p,'experiment');assert.equal(await p.locator('.experiment-results tbody tr').count(),2);assert.match(await p.locator('#experiment-prediction').inputValue(),/polypeptide/);
  await go(p,'replication',1);assert.equal(await p.locator('#lesson-live').isHidden(),true);assert.equal(await p.locator('#lesson-feedback').isHidden(),true);
  await p.locator('[data-answer="reverse"]').click();await p.locator('[data-answer="same"]').click();
  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('biology-zoomout-lessons-v1')).lessons.replication.answers.predict.firstCorrect),false);
@@ -61,7 +61,7 @@ try{
  await p.close();check('Predictions and comparisons persist; assessment and recall answers stay hidden until an attempt');
  const m=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});observe(m);
  await go(m,'replication');await showLessonDiagram(m);await m.locator('[data-lesson-at]').nth(2).tap();await m.screenshot({path:'test-results/interactive-lessons/phone-diagram.png'});
- await m.locator('#experiment-tab').tap();await m.locator('#experiment-condition').selectOption('helicase-off');await m.locator('#experiment-run').tap();
+ await showLessonPart(m,'experiment');await m.locator('#experiment-condition').selectOption('helicase-off');await m.locator('#experiment-run').tap();
  assert.match(await m.locator('#experiment-status').textContent(),/0 leading \+ 0 lagging/);
  await m.screenshot({path:'test-results/interactive-lessons/phone-experiment.png'});
  assert.equal(await m.evaluate(()=>{const c=document.querySelector('#scene canvas').getBoundingClientRect(),p=document.querySelector('#lesson-panel').getBoundingClientRect();return c.height>130&&c.bottom<=p.top&&document.documentElement.scrollWidth<=innerWidth;}),true);

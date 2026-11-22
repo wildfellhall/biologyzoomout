@@ -166,8 +166,8 @@
 .lesson-mode:has(#lesson-stage-nav:not([hidden])) #lesson-player-slot { height:84px; }
 .lesson-mode.nodes-open #lesson-panel { visibility:hidden; }
 @media(min-width:1280px) and (min-height:541px){
- .lesson-mode:has(#lesson-panel[data-play=true][data-activity=diagram]) { --lesson-column:min(60vw,1280px); }
- .lesson-mode:has(#lesson-panel:is([data-type=question],[data-type=recall],[data-play=true][data-activity=experiment],[data-play=true][data-activity=check])) { --lesson-column:min(54vw,1120px); }
+ .lesson-mode:has(#lesson-panel[data-activity=diagram]) { --lesson-column:min(60vw,1280px); }
+ .lesson-mode:has(#lesson-panel:is([data-type=question],[data-type=recall],[data-play=true][data-activity=experiment],[data-activity=check])) { --lesson-column:min(54vw,1120px); }
 }
 @media(max-width:1000px){
  #lesson-units { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -258,3 +258,7 @@
 }
 @media(max-width:350px){.dashboard-mode .top-actions { gap:9px; }.unit-card h3 { font-size:18px; }.unit-card svg { width:32px; height:32px; }.unit-card { padding:15px 12px 18px; }.activity-tabs { gap:10px; }.activity-tabs button { font-size:11px; }}
 @media(prefers-reduced-motion:reduce){.unit-card { transition:none; }}
+
+#lesson-up-next{margin-left:auto;font-size:11px;line-height:1.4;color:var(--muted);text-align:right}#lesson-counter{font-variant-numeric:tabular-nums}.visual-task-heading{justify-content:flex-end}
+@media(max-width:639px){#lesson-up-next{display:none}}
+@media(max-width:370px){.dashboard-mode .topbar #learn-toggle{display:none}}

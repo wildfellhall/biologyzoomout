@@ -283,7 +283,7 @@ try {
     if(route.steps[0].id==='molecules')parameters.set('molecule',state.molecule);
     if(Math.abs(state.target-index)>.001)parameters.set('zoom',state.target.toFixed(3));
     if(state.selectedNode)parameters.set('node',state.selectedNode);
-    if(lessonUI?.active&&lessonUI.active!=='review'){parameters.set('lesson',lessonUI.active);parameters.set('step',lessonUI.stepIndex);}
+    if(lessonUI?.active&&lessonUI.active!=='review'){parameters.set('lesson',lessonUI.active);parameters.set('step',lessonUI.stepIndex);parameters.set('part',lessonUI.part);}
     if(lessonUI?.active==='review')parameters.set('review','');
     history.replaceState(null,'',`#${parameters}`);
   }
@@ -297,7 +297,7 @@ try {
     if(parameters.has('lessons')){showDashboard({unit:parameters.get('unit'),query:parameters.get('q')});return;}
     leaveDashboard();leaveHome();
     if(parameters.has('review')){if(!lessonUI.startReview()){history.replaceState(null,'','#lessons');showDashboard();}return;}
-    if(lessonUI?.has(parameters.get('lesson'))){lessonUI.start(parameters.get('lesson'),{step:parameters.has('step')?Number(parameters.get('step')):null});if(nodeMap.has(parameters.get('node')))openNode(parameters.get('node'));return;}
+    if(lessonUI?.has(parameters.get('lesson'))){lessonUI.start(parameters.get('lesson'),{step:parameters.has('step')?Number(parameters.get('step')):null,part:parameters.get('part')});if(nodeMap.has(parameters.get('node')))openNode(parameters.get('node'));return;}
     if(lessonUI?.active)lessonUI.exit({update:false});
     const requestedMolecule=moleculeMap.get(parameters.get('molecule')),organism=parameters.get('organism')==='animal'?'animal':'plant';
     let next=buildPath('starch',organism),model=null,index=null;
