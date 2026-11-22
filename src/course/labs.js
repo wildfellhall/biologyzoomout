@@ -1,3 +1,4 @@
+import {visualGuidance} from './visual-guidance.js';
 import {replicationState,translationState} from '../reaction-state.js';
 import {divisionState,divisionStages} from '../division-state.js';
 const o=(id,label)=>({id,label});
@@ -65,6 +66,7 @@ export const labs={
  biodiversity:lab('habitat','How do different response traits affect function during and after the same disturbance?', [['normal','Three functional contributors'],['single','One sensitive contributor']],'Function retained (%)',demo+'Equal initial function. Three contributors have different disturbance tolerances; a single contributor is sensitive. This comparison isolates response diversity, not a universal richness rule.',['Equal initial function','Disturbance','Resistance','Recovery']),
  disturbance:lab('habitat','Trace the delay between a nutrient pulse and oxygen decline.',[['normal','Moderate nutrient input'],['enriched','High nutrient input']],'Dissolved O₂ index',demo+'A chosen lag links producer growth to decomposer demand. Relative oxygen index is not mg/L; physical mixing and reaeration are held out.',['Nutrient pulse','Producer increase','Decomposition','Oxygen demand']),
 };
+for(const [kind,stages] of Object.entries(visualGuidance))labs[kind].stages=stages.map(([title,text],i)=>({at:i/4,title,text}));
 for(const kind of ['mitosis','meiosis'])Object.assign(labs[kind],{stages:divisionStages[kind],beats:divisionStages[kind].map(s=>s.title),seconds:kind==='mitosis'?42:64,name:kind==='mitosis'?'Cell cycle & mitosis':'Meiosis I & II'});
 labs.mitosis.note='Illustrative animal cell with 2n = 4; teal and coral distinguish homolog origin and length distinguishes the two pairs. C is DNA content relative to one unreplicated haploid genome. S phase precedes mitosis. The blocked spindle treatment arrests before anaphase. Shape, timing and microtubule counts are schematic; plants form a cell plate rather than a cleavage furrow.';
 labs.meiosis.options.push(o('no-crossover','No crossover · normal segregation'),o('alternate','Reverse the second pair’s orientation'));
@@ -102,11 +104,11 @@ export function sampleLab(kind,t,condition='normal'){
   case 'enzyme':s.substrate=v?8:1;s.value=10*s.substrate/(2+s.substrate);s.product=s.value*t;break;
   case 'enzyme-environment':s.ph=condition==='acid'?4:condition==='alkaline'?10:7;s.value=100*Math.exp(-(((s.ph-7)/2)**2));s.product=s.value/10*t;break;
   case 'coupling':s.value=v?0:Math.floor(10*step);s.deltaG=v?12:-18;s.blocked=v;break;
-  case 'photosynthesis':s.light=condition!=='dark';s.carbon=condition!=='no-carbon';s.value=s.light&&s.carbon?12*end:0;s.carriers=s.light?100*step:0;break;
-  case 'respiration':s.value=(condition==='ferment'?7:condition==='no-recycle'?2:100)*step;s.oxygen=!v;s.recycled=condition!=='no-recycle';break;
-  case 'communication':s.value=v?0:100*step;s.blocked=v;break;
-  case 'reception':s.value=condition==='blocked'?0:100*step;s.blocked=condition==='blocked';s.constitutive=condition==='constitutive';break;
-  case 'cascade':s.value=condition==='blocked'?0:Math.floor(20*step);s.blocked=condition==='blocked';s.bypass=condition==='bypass';break;
+  case 'photosynthesis':s.light=condition!=='dark';s.carbon=condition!=='no-carbon';s.value=s.light&&s.carbon?12*end:0;s.carriers=s.light?100*step:0;s.energyInput=s.light?1:0;break;
+  case 'respiration':s.value=(condition==='ferment'?7:condition==='no-recycle'?2:100)*step;s.oxygen=!v;s.recycled=condition!=='no-recycle';s.energyInput=s.oxygen?1:0;break;
+  case 'communication':s.value=v?0:100*ramp(t,.35,.85);s.blocked=v;break;
+  case 'reception':s.value=condition==='blocked'?0:100*ramp(t,.35,.85);s.blocked=condition==='blocked';s.constitutive=condition==='constitutive';break;
+  case 'cascade':s.value=condition==='blocked'?0:Math.floor(20*ramp(t,.45,.85));s.blocked=condition==='blocked';s.bypass=condition==='bypass';break;
   case 'feedback':s.value=1+.5*(v?Math.exp(1.2*t):Math.exp(-5*t));s.reference=1;break;
   case 'checkpoint':s.divides=v;s.value=v&&t>=.85?2:0;s.damage=true;s.dna=8;break;
   case 'recombination':s.recombined=v&&t>.5;s.value=s.recombined?2:0;break;
@@ -139,7 +141,7 @@ export function sampleLab(kind,t,condition='normal'){
   case 'biodiversity':s.diverse=!v;s.contributors=(v?[.2]:[.35,.65,.95]).map(retained=>1-(1-retained)*ramp(t,.3,.6)+.3*ramp(t,.6,1));s.value=100*s.contributors.reduce((a,b)=>a+b,0)/s.contributors.length;break;
   case 'disturbance':s.algae=(v?100:30)*Math.sin(Math.PI*t);s.decomposition=(v?90:20)*ramp(t,.3,1);s.value=100-s.decomposition;break;
  }
- s.caption=config.beats[s.phase];s.metrics=[[config.measure,Number.isInteger(s.value)?String(s.value):String(round(s.value))]];
+ s.caption=config.stages?.[s.phase]?.text||config.beats[s.phase];s.metrics=[[config.measure,Number.isInteger(s.value)?String(s.value):String(round(s.value))]];
  if(kind==='cell-size')s.metrics.push(['Area (μm²)',round(s.area).toString()],['Volume (μm³)',round(s.volume).toString()]);
  if(kind==='replication')s.metrics.push(['Unsealed nicks',String(s.nicks)]);
  if(kind==='translation')s.metrics.push(['Chain',s.chain.join('–')||'Not started']);

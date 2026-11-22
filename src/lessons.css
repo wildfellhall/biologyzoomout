@@ -161,6 +161,7 @@
 .lesson-mode #lesson-panel[data-play=false] #lesson-player-slot { display:none; }
 .lesson-mode .process-toolbar { min-height:44px; gap:18px; }
 .lesson-mode .process-toolbar .icon-button { width:44px; height:44px; }
+.lesson-mode #scene[data-lesson-visual]:not([data-lesson-visual=""]) .process-label { max-width:230px; white-space:normal; text-align:center; line-height:1.4; }
 .lesson-mode #process-time { font-size:11px; color:var(--muted); }
 #lesson-stage-nav { display:flex; align-items:center; gap:12px; min-height:40px; border-bottom:1px solid var(--line); }
 #lesson-stage-nav button { width:36px; min-height:36px; flex-shrink:0; }
@@ -170,6 +171,7 @@
 .lesson-mode.nodes-open #lesson-panel { visibility:hidden; }
 @media(min-width:1280px) and (min-height:541px){
  .lesson-mode:has(#lesson-panel[data-activity=diagram]) { --lesson-column:min(60vw,1280px); }
+ .lesson-mode:has(#scene:is([data-lesson-visual^="cellular-"],[data-lesson-visual^="ecology-"])):has(#lesson-panel[data-activity=diagram]) { --lesson-column:min(52vw,1100px); }
  .lesson-mode:has(#lesson-panel:is([data-type=question],[data-type=recall],[data-play=true][data-activity=experiment],[data-activity=check])) { --lesson-column:min(54vw,1120px); }
 }
 @media(max-width:1000px){

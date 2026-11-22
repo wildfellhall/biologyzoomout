@@ -140,7 +140,7 @@ export class BiologyScene extends ModelBuilders {
   }
 
   updateLighting(){
-    const habitat=['plant','rabbit','tree','population','rabbit-population','tree-population','community','ecosystem'].includes(this.activeView?.id);
+    const habitat=this.activeView?.processRig?.lighting==='habitat'||['plant','rabbit','tree','population','rabbit-population','tree-population','community','ecosystem'].includes(this.activeView?.id);
     this.container.dataset.lighting=habitat?'habitat':'scientific';
     this.scene.environment=habitat&&this.outdoorEnvironment?this.outdoorEnvironment.texture:this.environmentMap.texture;
     this.scene.environmentIntensity=habitat?.55:.32;
@@ -315,6 +315,7 @@ export class BiologyScene extends ModelBuilders {
     if (second) second.labels.hidden=second!==this.activeView;
     this.activeView.labels.hidden=false;
     this.container.dataset.model=this.activeView.id;
+    this.container.dataset.lessonVisual=this.activeView.processRig?.visualFamily||'';
     this.applyProcess();
     this.fitCamera();
     for (const [key,view] of this.views) {

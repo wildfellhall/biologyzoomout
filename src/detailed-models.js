@@ -7,6 +7,8 @@ import { structureInfo } from './structures.js';
 import { pathwayInfo } from './pathways.js';
 import {cellInterior,nuclearDetail,microtubuleNetwork,granules} from './cell-detail.js';
 
+// Lessons and Zoom Out share the same cutaway anatomy and surface detail.
+export {cell as cellAnatomy,organelle as organelleAnatomy,er as erAnatomy,golgi as golgiAnatomy,nucleus as nucleusAnatomy,synthase as synthaseAnatomy};
 const TAU=Math.PI*2;
 const lerp=(a,b,t)=>a+(b-a)*t;
 const point=(a,b,t)=>a.map((v,i)=>lerp(v,b[i],t));
