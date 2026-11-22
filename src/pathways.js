@@ -41,6 +41,7 @@ export const pathwayInfo={
 
 const step=(model,label,size,stage)=>({key:model,id:model,label,size,stage});
 const catalog={
+ golgi:step('golgi','Golgi apparatus','~1 μm',3),'smooth-er':step('smooth-er','Smooth ER','~1 μm region',3),
  'free-ribosome':step('free-ribosome','Free ribosome','~25 nm',3),tonoplast:step('tonoplast','Tonoplast','~5–10 nm thick',2),
  tree:step('tree','Tree','~10 m',5),'tree-population':step('tree-population','Tree population','~100 m',6),
  molecules:step('molecules','Molecule','~1 nm',0),
@@ -162,7 +163,7 @@ export function buildPath(pathId='starch',organism='plant') {
   const id=pathId.replace(/^inspect:/,'');
   if(!(id in specialParents))throw new Error(`Unknown zoom pathway: ${pathId}`);
   const onlyAnimal=['lysosome','centrosome'].includes(id),onlyPlant=['vacuole','cell-wall'].includes(id);
-  definition={name:id.replaceAll('-',' '),organisms:onlyAnimal?['animal']:onlyPlant?['plant']:['plant','animal'],models:[id,...specialParents[id]]};
+  definition={name:({golgi:'Golgi apparatus','smooth-er':'Smooth ER'})[id]||id.replaceAll('-',' '),organisms:onlyAnimal?['animal']:onlyPlant?['plant']:['plant','animal'],models:[id,...specialParents[id]]};
  }
  if(!definition.organisms.includes(organism))organism=definition.organisms[0];
  models=[...definition.models];

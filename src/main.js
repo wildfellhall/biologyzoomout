@@ -1,3 +1,4 @@
+import {createSearch} from './search.js';
 import {createExploreStart} from './explore-start.js';
 import './practice/styles.css';
 import {createPracticeUI} from './practice/ui.js';
@@ -18,6 +19,7 @@ import { pathways, pathwayInfo, buildPath, routeForModel, pathForMolecule, suppo
 
 const $ = selector => document.querySelector(selector);
 const icons = {
+  index:'<path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/>',
   search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
   close:'<path d="m6 6 12 12M6 18 18 6"/>',
@@ -57,7 +59,7 @@ try {
   $('#app').innerHTML = `
     <header class="topbar">
       <button class="brand" id="home" aria-label="Biology Zoomout, return to home"><svg class="brand-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="21"/><circle cx="20" cy="24" r="14"/><circle cx="16" cy="24" r="7"/><circle class="brand-core" cx="13" cy="24" r="2.5"/></svg><span class="brand-type"><span>Biology</span><em>zoomout</em></span></button>
-      <div class="top-actions"><button id="paths-toggle" aria-haspopup="dialog">${icon('paths')}<span class="path-label">Paths</span><span id="active-path"></span></button><button id="nodes-toggle" aria-expanded="false" aria-controls="node-browser">${icon('search')}<span>Index</span><span class="count" id="nodes-count" hidden></span></button><button id="info-toggle" class="icon-button" aria-label="View settings and model sources" title="Settings & sources">${icon('info')}</button></div>
+      <div class="top-actions"><button id="search-toggle" aria-label="Search Biology Zoomout" aria-haspopup="dialog" aria-controls="search-dialog" title="Search (⌘K or /)">${icon('search')}<span>Search</span></button><button id="paths-toggle" aria-haspopup="dialog">${icon('paths')}<span class="path-label">Paths</span><span id="active-path"></span></button><button id="nodes-toggle" aria-label="Browse curriculum nodes" aria-expanded="false" aria-controls="node-browser">${icon('index')}<span>Index</span><span class="count" id="nodes-count" hidden></span></button><button id="info-toggle" class="icon-button" aria-label="View settings and model sources" title="Settings & sources">${icon('info')}</button></div>
     </header>
 
     <main id="viewer">
@@ -75,7 +77,7 @@ try {
         <p id="field-note-text"></p><div class="field-note-links"><button id="field-note-inspect" hidden></button><button id="field-note-learn">Related AP node ↗</button><a id="field-note-source" target="_blank" rel="noopener">Source ↗</a></div>
       </section>
       <section id="process-panel" class="process-panel" aria-label="Animation controls" hidden>
-        <div class="process-toolbar"><button id="process-play" class="icon-button" aria-label="Play animation">${icon('play')}</button><span id="process-name"></span><input id="process-range" type="range" min="0" max="1" step="0.001" value="0" aria-label="Animation progress"><output id="process-time"></output><button id="process-details-toggle" class="icon-button" aria-label="Animation details" aria-expanded="false" aria-controls="process-details">${icon('expand')}</button></div>
+        <div class="process-toolbar"><button id="process-play" class="icon-button" aria-label="Play animation">${icon('play')}</button><span id="process-name"></span><select id="process-variant" aria-label="Animation process" hidden></select><input id="process-range" type="range" min="0" max="1" step="0.001" value="0" aria-label="Animation progress"><output id="process-time"></output><button id="process-details-toggle" class="icon-button" aria-label="Animation details" aria-expanded="false" aria-controls="process-details">${icon('expand')}</button></div>
         <div class="process-cue"><span id="process-beat"></span><p id="process-caption" aria-live="polite" aria-atomic="true"></p></div>
         <div id="process-details" hidden>
           <div id="process-chapters" class="process-chapters" aria-label="Reaction stages"></div>
@@ -112,9 +114,9 @@ try {
 
     <dialog id="paths-dialog" aria-labelledby="paths-title"><div class="dialog-toolbar"><h2 id="paths-title">Choose a path</h2><button class="close-dialog icon-button" aria-label="Close paths">${icon('close')}</button></div><div class="paths-body"><div class="path-controls"><label>Path<select id="path-select" aria-label="Zoom-out pathway"></select></label><label>Context<select id="organism-select" aria-label="Plant or animal context"></select></label></div><ol id="path-preview"></ol><button id="explore-path">Explore this path <span>↗</span></button></div></dialog>
     <dialog id="node-dialog" aria-labelledby="node-title"><div class="dialog-toolbar"><button id="node-back">← Back</button><button class="close-dialog icon-button" aria-label="Close learning node">${icon('close')}</button></div><div id="node-detail"></div></dialog>
-    <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title"><div class="dialog-toolbar"><h2 id="info-title">Model information</h2><button class="close-dialog icon-button" aria-label="Close model information">${icon('close')}</button></div><div class="info-body"><details class="settings" open><summary>View settings</summary><div class="view-controls" aria-label="3D controls"><button id="pause-btn" aria-label="Pause rotation">${icon('pause')}<span>Rotation</span></button><button id="labels-btn" aria-label="Show model labels" aria-pressed="false">${icon('labels')}<span>Labels</span></button><button id="reset-btn" aria-label="Reset view">${icon('reset')}<span>Reset view</span></button></div><label class="autoplay-setting"><input id="autoplay-setting" type="checkbox"> Play processes automatically</label><select id="process-select" aria-label="Choose an animation" hidden></select><div id="representation-controls"><button data-style="ball" aria-pressed="true">Ball & stick</button><button data-style="space" aria-pressed="false">Space filling</button></div></details><div id="model-information"></div><details><summary>Controls</summary><dl class="shortcuts"><dt>Scroll / pinch</dt><dd>Change scale</dd><dt>Drag</dt><dd>Rotate</dd><dt>← / →</dt><dd>Previous / next scale</dd><dt>Space</dt><dd>Pause / resume</dd><dt>/</dt><dd>Search nodes</dd><dt>Esc</dt><dd>Close</dd></dl></details><details><summary>Framework & sources</summary><p>AP Biology, 2026–27. All 234 original nodes and 496 learning relationships are available. Zoom paths follow biological components, compartments, and ecological membership. They are separate from the ontology’s prerequisite relationships.</p><ul class="source-list">${ontology.sources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)} ↗</a><small>${esc(source.edition)}</small></li>`).join('')}</ul><p>Each adjacent zoom step has an explicit biological relationship. Building-block and catalytic-binding steps differ from literal containment; the relationship notes below identify these cases. Models use representative dimensions and are not a calibrated reconstruction of one specimen.</p><p>Small molecules use published PubChem coordinates; crambin uses RCSB PDB 1CRN. Cell and organism scenes are procedural cutaways. Earth uses a satellite-derived texture. Colors, abundance, and biochemical playback times are illustrative; animation models and assumptions are documented above.</p><p>Habitat materials use local Poly Haven photographic maps: <a href="https://polyhaven.com/a/bark_brown_02" target="_blank" rel="noopener">Bark Brown 02</a> and <a href="https://polyhaven.com/a/forrest_ground_01" target="_blank" rel="noopener">Forest Ground 01</a> by Rob Tuytel, <a href="https://polyhaven.com/a/forest_ground_04" target="_blank" rel="noopener">Forest Ground 04</a> by Rob Tuytel and Rico Cilliers, and <a href="https://polyhaven.com/a/forest_slope" target="_blank" rel="noopener">Forest Slope</a> HDR lighting by Andreas Mischok. All are <a href="https://polyhaven.com/license" target="_blank" rel="noopener">CC0</a>. Organism shapes remain procedural illustrations, not scanned specimens. <a href="/textures/natural/sources.json" target="_blank" rel="noopener">Asset records ↗</a></p><a href="/data/ontology.json" download="ap-biology-ontology.json">Download ontology ↓</a></details><details><summary>Source qualifications</summary>${ontology.source_issues.map(issue=>`<p><b>${esc(issue.requirement)}</b> ${esc(issue.issue)} ${esc(issue.resolution)}</p>`).join('')}<p>Six classroom and laboratory implementation conditions remain unverified. Reviewed markers are local reading records, not mastery scores.</p></details></div></dialog>`;
+    <dialog id="info-dialog" class="info-dialog" aria-labelledby="info-title"><div class="dialog-toolbar"><h2 id="info-title">Model information</h2><button class="close-dialog icon-button" aria-label="Close model information">${icon('close')}</button></div><div class="info-body"><details class="settings" open><summary>View settings</summary><div class="view-controls" aria-label="3D controls"><button id="pause-btn" aria-label="Pause rotation">${icon('pause')}<span>Rotation</span></button><button id="labels-btn" aria-label="Show model labels" aria-pressed="false">${icon('labels')}<span>Labels</span></button><button id="reset-btn" aria-label="Reset view">${icon('reset')}<span>Reset view</span></button></div><label class="autoplay-setting"><input id="autoplay-setting" type="checkbox"> Play processes automatically</label><select id="process-select" aria-label="Choose an animation" hidden></select><div id="representation-controls"><button data-style="ball" aria-pressed="true">Ball & stick</button><button data-style="space" aria-pressed="false">Space filling</button></div></details><div id="model-information"></div><details><summary>Controls</summary><dl class="shortcuts"><dt>Scroll / pinch</dt><dd>Change scale</dd><dt>Drag</dt><dd>Rotate</dd><dt>← / →</dt><dd>Previous / next scale</dd><dt>Space</dt><dd>Pause / resume</dd><dt>/ or Ctrl / ⌘ K</dt><dd>Search everything</dd><dt>Esc</dt><dd>Close</dd></dl></details><details><summary>Framework & sources</summary><p>AP Biology, 2026–27. All 234 original nodes and 496 learning relationships are available. Zoom paths follow biological components, compartments, and ecological membership. They are separate from the ontology’s prerequisite relationships.</p><ul class="source-list">${ontology.sources.map(source=>`<li><a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)} ↗</a><small>${esc(source.edition)}</small></li>`).join('')}</ul><p>Each adjacent zoom step has an explicit biological relationship. Building-block and catalytic-binding steps differ from literal containment; the relationship notes below identify these cases. Models use representative dimensions and are not a calibrated reconstruction of one specimen.</p><p>Small molecules use published PubChem coordinates; crambin uses RCSB PDB 1CRN. Cell and organism scenes are procedural cutaways. Earth uses a satellite-derived texture. Colors, abundance, and biochemical playback times are illustrative; animation models and assumptions are documented above.</p><p>Habitat materials use local Poly Haven photographic maps: <a href="https://polyhaven.com/a/bark_brown_02" target="_blank" rel="noopener">Bark Brown 02</a> and <a href="https://polyhaven.com/a/forrest_ground_01" target="_blank" rel="noopener">Forest Ground 01</a> by Rob Tuytel, <a href="https://polyhaven.com/a/forest_ground_04" target="_blank" rel="noopener">Forest Ground 04</a> by Rob Tuytel and Rico Cilliers, and <a href="https://polyhaven.com/a/forest_slope" target="_blank" rel="noopener">Forest Slope</a> HDR lighting by Andreas Mischok. All are <a href="https://polyhaven.com/license" target="_blank" rel="noopener">CC0</a>. Organism shapes remain procedural illustrations, not scanned specimens. <a href="/textures/natural/sources.json" target="_blank" rel="noopener">Asset records ↗</a></p><a href="/data/ontology.json" download="ap-biology-ontology.json">Download ontology ↓</a></details><details><summary>Source qualifications</summary>${ontology.source_issues.map(issue=>`<p><b>${esc(issue.requirement)}</b> ${esc(issue.issue)} ${esc(issue.resolution)}</p>`).join('')}<p>Six classroom and laboratory implementation conditions remain unverified. Reviewed markers are local reading records, not mastery scores.</p></details></div></dialog>`;
 
-  let scene,lessonUI,homeUI,dashboardUI,practiceUI,startUI,lessonNavigation=false;
+  let scene,lessonUI,homeUI,dashboardUI,practiceUI,startUI,searchUI,lessonNavigation=false;
   scene = new BiologyScene($('#scene'), {
     onSelect: selection => {
       if (selection.feature) openFieldNote(selection.feature);
@@ -216,6 +218,8 @@ try {
     const animations=processesFor(id);$('#process-select').hidden=!animations.length;
     $('#process-select').innerHTML=`<option value="">Structure only</option>${animations.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}`;
     $('#process-details').hidden=true;$('#process-details-toggle').setAttribute('aria-expanded','false');
+    $('#process-variant').hidden=animations.length<2;
+    $('#process-variant').innerHTML=animations.map(p=>`<option value="${p.id}">${esc(p.name.split(' · ').at(-1).replace(/^./,c=>c.toUpperCase()))}</option>`).join('');
     activateProcess(animations[0]?.id||null);
     $('#nodes-count').textContent=contextNodes().length;$('#stage-scope').textContent='This structure';$('#picked-atom').hidden=true;
     renderCards();if($('#info-dialog').open)renderInformation();
@@ -379,6 +383,8 @@ try {
     const visible=!!snapshot&&!!scene?.renderer;
     $('#process-panel').hidden=!visible;document.body.classList.toggle('process-active',visible);
     if(!visible)return;
+    $('#process-name').hidden=!$('#process-variant').hidden;
+    $('#process-variant').value=snapshot.id;
     $('#process-name').textContent=snapshot.id.startsWith('topic-')?processes[snapshot.id].steps[snapshot.phase]:processes[snapshot.id].name+(snapshot.stage?' · '+snapshot.stage:'');
     $('#process-panel').dataset.playing=String(playing);
     $('#process-range').value=snapshot.t;
@@ -503,6 +509,7 @@ try {
   $('#structure-back').onclick=()=>leaveStructure();
   $('#part-select').onchange=event=>{if(event.target.value)focusStructure(event.target.value);};
   $('#process-select').onchange=event=>activateProcess(event.target.value||null);
+  $('#process-variant').onchange=event=>activateProcess(event.target.value);
   $('#process-play').onclick=()=>{state.animationPaused=scene.processPlaying;scene.playProcess(!scene.processPlaying);};
   $('#process-restart').onclick=()=>{state.animationPaused=false;scene.seekProcess(0);scene.playProcess(state.autoplay&&!scene.reducedMotion);};
   $('#process-range').oninput=event=>{const value=Number(event.target.value);state.animationPaused=true;scene.playProcess(false);scene.seekProcess(value);};
@@ -559,7 +566,7 @@ try {
       if(event.key==='ArrowLeft'){event.preventDefault();lessonUI.back();return;}
       if(event.code==='Space'&&event.target===document.body){event.preventDefault();if(lessonUI.canPlay())$('#process-play').click();return;}
     }
-    if(event.key==='/'){event.preventDefault();toggleBrowser(true,true);}
+    if(event.key==='/'){event.preventDefault();searchUI.open();return;}
     if(event.key==='ArrowRight'){event.preventDefault();$('#zoom-out').click();}
     if(event.key==='ArrowLeft'){event.preventDefault();$('#zoom-in').click();}
     if(event.code==='Space'&&event.target===document.body){event.preventDefault();state.process?$('#process-play').click():setPaused();}
@@ -620,6 +627,8 @@ try {
     onLessons:openDashboard,
     onExplore:openStart,
   });
+  searchUI=createSearch({molecules,ontology,context:()=>state.choosing?$('#start-context').value:state.organism});
+  $('#search-toggle').onclick=()=>searchUI.open();
   mountInstallUI();
   updatePause();readHash();
   window.addEventListener('hashchange',readHash);

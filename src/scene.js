@@ -128,7 +128,7 @@ export class BiologyScene extends ModelBuilders {
     this.activeView?.processRig?.update(snapshot);
     const view=this.activeView;
     if(view){const bounds=snapshot?view.processBounds:view.baseBounds;view.content.position.copy(bounds.center).negate();view.normalized.scale.setScalar(3.1/bounds.radius);}
-    if(this.focusDefinition?.id==='lesson-lab'||['nucleosome','chromatin','mitotic-cell','meiotic-cell'].includes(this.activeView?.id))this.fitCamera();
+    if(this.focusDefinition?.id==='lesson-lab'||['nucleosome','chromatin','mitotic-cell','meiotic-cell','rough-er','smooth-er','golgi'].includes(this.activeView?.id))this.fitCamera();
     if(this.controls)this.controls.autoRotate=!this.paused&&!this.process&&!this.labelsVisible;
     this.onProcess?.(snapshot,this.processPlaying);
     if(this.labelLayer)this.labelLayer.hidden=!(this.labelsVisible||snapshot);
@@ -174,7 +174,7 @@ export class BiologyScene extends ModelBuilders {
     const widthFraction=THREE.MathUtils.lerp(width(first?.id),width(next?.id),smooth(0,1,fraction));
     const bounds=this.process?this.activeView?.processBounds:this.activeView?.baseBounds;
     const extent=bounds?.size?.clone().multiplyScalar(3.1/bounds.radius);
-    const detailed=['nucleosome','chromatin','mitotic-cell','meiotic-cell'].includes(first?.id);
+    const detailed=['nucleosome','chromatin','mitotic-cell','meiotic-cell','rough-er','smooth-er','golgi'].includes(first?.id);
     const distance=(first?.id==='lesson-lab'||detailed)&&extent
       ?8*(this.activeView?.processRig?.cameraScale||1)*Math.max(1,(extent.y+.2*extent.z)/4.5,(extent.x+.2*extent.z)/(4.5*this.camera.aspect))
       :11.5*Math.max(1,widthFraction/this.camera.aspect);

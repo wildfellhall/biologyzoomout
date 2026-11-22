@@ -1,3 +1,4 @@
+import {endomembraneState,endomembranePhases} from './endomembrane-state.js';
 import {divisionState,divisionStages} from './division-state.js';
 import {courseContent} from './course/content.js';
 import {labs,sampleLab} from './course/labs.js';
@@ -72,6 +73,32 @@ export const processes={
   'A developing woodland changes shade and habitat structure.'
  ],'45-6-community-ecology','One authored 80-year secondary-succession scenario, not a forecast. Growth curves illustrate turnover; rates, species, and final communities vary with conditions.'),
 };
+
+processes['er-protein']=define('Rough ER · protein processing',['rough-er'],26,[
+ 'A ribosome docks at a translocon in the ER membrane. Its mRNA stays on the cytosolic side.',
+ 'Translation feeds a growing secretory polypeptide through the channel into the ER lumen.',
+ 'The chain folds in the lumen. ER quality control helps retain proteins that have not folded correctly.',
+ 'Folded cargo is packaged at an ER exit site for transport toward the Golgi.'
+],'https://www.ncbi.nlm.nih.gov/books/NBK26841/','Enlarged cutaway of a representative secretory-protein route. Eighteen beads stand for a chain, not a functional protein sequence. Targeting factors, chaperones, glycosylation and coat machinery are omitted. The export carrier stands for budding and scission; the membrane is not mechanically simulated.');
+processes['golgi-sorting']=define('Golgi · modify & sort',['golgi'],28,[
+ 'An ER-derived transport carrier delivers luminal protein cargo to the cis face.',
+ 'The cargo-containing cisterna matures toward the trans side as carbohydrate groups are processed.',
+ 'At the trans-Golgi network, targeting information directs cargo into different carriers.',
+ 'Separate carriers head toward the cell surface or an endosome; proteins stay inside their carriers.'
+],'https://www.ncbi.nlm.nih.gov/books/NBK26941/','Schematic cisternal maturation, one model of Golgi transport. Teal and gold distinguish two cargo classes; pink beads indicate carbohydrate processing, not a specified glycan. Returning enzyme carriers, targeting signals, and membrane fusion mechanics are omitted. Displayed transit rates are illustrative.');
+processes['er-lipids']=define('Smooth ER · lipid assembly',['smooth-er'],24,[
+ 'Lipid precursors approach membrane-associated enzymes on the cytosolic side of the ER.',
+ 'A series of enzyme-catalyzed reactions builds phospholipids. Several reactions are condensed here.',
+ 'New phospholipids enter the cytosolic leaflet: polar heads face water and tails face the bilayer interior.',
+ 'Scramblases redistribute lipids between leaflets, supporting growth of both halves of the membrane.'
+],'https://www.ncbi.nlm.nih.gov/books/NBK26841/','A magnified membrane patch sits in front of the tubular ER network. Groups represent lipid precursors, not atoms or a balanced reaction. Lipid synthesis occurs in ER membranes, including rough ER. Protein-mediated lipid transfer is condensed and not a molecular trajectory; no spontaneous passage of a polar head through the hydrophobic core is implied.');
+processes['er-calcium']=define('Smooth ER · calcium storage',['smooth-er'],24,[
+ 'The ER membrane separates calcium stores from the cytosol.',
+ 'ATP-powered pumps move Ca²⁺ from the cytosol into the ER lumen against its electrochemical gradient.',
+ 'A signal opens release channels; Ca²⁺ moves into the cytosol down its gradient.',
+ 'Pumps return Ca²⁺ to the ER, restoring the store and helping lower cytosolic calcium.'
+],'https://www.ncbi.nlm.nih.gov/books/NBK26841/','Twelve conserved tracer ions represent movement, not cellular calcium concentration or pump stoichiometry. ATP and signaling molecules are not drawn. An enlarged membrane patch exposes pump and channel routes; calcium storage is an ER function, not limited to smooth domains.');
+
 processes['dna-breathing']=define('DNA accessibility',['nucleosome'],16,[
  'DNA is wrapped around the histone core.',
  'The ends of the wrapped DNA loosen locally.',
@@ -90,7 +117,7 @@ for(const [id,kind,model] of [['mitosis','mitosis','mitotic-cell'],['meiosis','m
 for(const c of courseContent){const lab=labs[c.sim];processes[`topic-${c.topic}`]=define(lab.name||lab.beats[0],['lesson-lab'],lab.seconds||(c.sim==='replication'?22:c.sim==='translation'?24:18),lab.beats,'https://apcentral.collegeboard.org/media/pdf/ap-biology-course-and-exam-description.pdf',lab.note);}
 export const processesFor=id=>Object.entries(processes).filter(([,p])=>p.models.includes(id)).map(([id,p])=>({id,...p}));
 // Match explanatory beats to the rig's binding, reaction and product events.
-export const phaseStarts={'dna-breathing':[0,.15,.48,.7],'chromatin-folding':[0,.12,.55,.75],catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
+export const phaseStarts={...endomembranePhases,'dna-breathing':[0,.15,.48,.7],'chromatin-folding':[0,.12,.55,.75],catalysis:[0,.28,.48,.76],replication:[0,.08,.4,.94],diffusion:[0,.12,.3,.9],chemiosmosis:[0,.3,.58,.74],light:[0,.25,.5,.74],translation:[0,.12,.48,.87],peptide:[0,.32,.55,.82]};
 for(const kind of ['mitosis','meiosis'])phaseStarts[kind]=divisionStages[kind].map(s=>s.at);
 for(const c of courseContent)if(labs[c.sim].stages)phaseStarts[`topic-${c.topic}`]=labs[c.sim].stages.map(s=>s.at);
 export function phaseAt(id,t){const stops=phaseStarts[id]||[0,.25,.5,.75];return Math.max(0,stops.findLastIndex(start=>t>=start));}
@@ -136,6 +163,7 @@ export function diffusionPositions(t) {
 export function sampleProcess(id,progress,environment='favor-a',options={}) {
  const t=clamp(progress),process=processes[id];if(!process)return null;
  const phase=phaseAt(id,t),state={id,t,phase,caption:process.steps[phase],time:`${Math.round(t*process.seconds)} / ${process.seconds} s`,metrics:[]};
+ const organelle=endomembraneState(id,t);if(organelle){Object.assign(state,organelle);if(id==='er-calcium')state.metrics=[['Tracer ions','12 conserved']];return state;}
  if(id==='mitosis'||id==='meiosis')return {...state,...divisionState(id,t,options.condition||'normal'),id};
  if(id==='dna-breathing'){state.exposure=interval(t,.15,.48)*(1-interval(t,.7,1));state.metrics=[['DNA sequence','Unchanged'],['Exposure',state.exposure>.5?'Ends loosened':'Mostly wrapped']];return state;}
  if(id==='chromatin-folding'){state.compaction=interval(t,.12,.55)*(1-interval(t,.75,1));state.metrics=[['Nucleosomes','7 represented'],['Organization',state.compaction>.5?'Compact':'Open']];return state;}

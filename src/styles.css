@@ -329,3 +329,9 @@ input[type=checkbox] { accent-color: var(--accent); }
 .process-active .scene { bottom:calc(var(--dock) + var(--process-clearance,108px)); }
 .nodes-open.process-active .scene { bottom:calc(var(--dock) + var(--tray) + var(--process-clearance,108px)); }
 #field-note-learn { text-align:left; line-height:1.5; }
+
+#process-variant{flex:0 0 140px;max-width:140px;min-width:0;border:0;background:transparent;color:var(--ink);font-size:11px;padding:5px 20px 5px 0;text-overflow:ellipsis}#process-variant:focus-visible{outline-offset:0}@media(max-width:640px){#process-variant{flex-basis:115px;max-width:115px;font-size:10px}}
+
+
+@media(max-width:500px){.topbar{padding-inline:16px}.topbar .top-actions{gap:7px}.topbar .brand-type em{font-size:24px}#nodes-toggle span,#paths-toggle .path-label{display:none}.topbar #nodes-toggle svg,.topbar #paths-toggle svg{display:block}#nodes-toggle,#paths-toggle{width:26px;justify-content:center}}
+@media(max-width:370px){body:not(.dashboard-mode):not(.lesson-mode) .topbar .brand-type{display:none}}

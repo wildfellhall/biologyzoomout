@@ -1,3 +1,4 @@
+import {makeRoughER,makeSmoothER,makeGolgi} from './endomembrane-model.js';
 import {makeReplication,makeTranslation} from './molecular-reactions.js';
 import * as THREE from 'three';
 import { ball, mesh, rod, path, organic, rim, sheet, surface, group, tag, particles, noise, sphere } from './surfaces.js';
@@ -224,8 +225,9 @@ export const detailedBuilders={
  },
  makeStructure(id) {
   if(id==='nucleus')nucleus(this.root);
-  else if(id==='rough-er'||id==='smooth-er'){er(this.root,id==='rough-er');}
-  else if(id==='golgi'){golgi(this.root);}
+  else if(id==='rough-er')makeRoughER.call(this);
+  else if(id==='smooth-er')makeSmoothER.call(this);
+  else if(id==='golgi')makeGolgi.call(this);
   else if(id==='ribosome'){const body=ribosome(this.root);this.makeTranslationRig(body);}
   else if(['lysosome','peroxisome','vesicle'].includes(id)){vesicle(this.root,id);}
   else if(id==='centrosome')centrosome(this.root);
