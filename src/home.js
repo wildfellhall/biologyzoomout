@@ -9,7 +9,7 @@ function makeHelix() {
   const root = new THREE.Group();
   const sphere = new THREE.SphereGeometry(1, 24, 16);
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 12);
-  const materials = ['#537566', '#c3aa80', '#a1b6a0', '#d2a08a'].map(color => new THREE.MeshPhysicalMaterial({
+  const materials = ['#467e63', '#d4b275', '#9fbd91', '#df9a78'].map(color => new THREE.MeshPhysicalMaterial({
     color, roughness:.32, metalness:.08, clearcoat:.28, clearcoatRoughness:.38,
   }));
   function bead(position, radius, material) {

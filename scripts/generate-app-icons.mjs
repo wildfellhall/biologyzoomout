@@ -13,7 +13,7 @@ try {
     const png = await page.evaluate(async ({svg, size}) => {
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = size;
       const context = canvas.getContext('2d');
-      context.fillStyle = '#eeede5'; context.fillRect(0, 0, size, size);
+      context.fillStyle = '#f7f5e9'; context.fillRect(0, 0, size, size);
       const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await img.decode();
       context.drawImage(img, 0, 0, size, size);
       return canvas.toDataURL('image/png').split(',')[1];

@@ -1,4 +1,4 @@
-#home-page { position:fixed; inset:0; overflow:hidden; background:radial-gradient(ellipse at 68% 45%,#faf8ee 0%,#eeede5 64%); color:var(--ink); }
+#home-page { position:fixed; inset:0; overflow:hidden; background:radial-gradient(ellipse at 68% 45%,var(--surface) 0%,var(--paper) 64%); color:var(--ink); }
 #home-page::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.055; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E"); }
 #home-art { position:absolute; inset:0 -2% 0 39%; touch-action:none; }
 #home-art canvas { display:block; cursor:grab; }
@@ -12,11 +12,11 @@
 #home-title>span { display:block; margin:0 0 22px 8px; font-size:13px; font-weight:450; letter-spacing:.52em; text-transform:uppercase; }
 #home-title>em { display:block; font:italic clamp(85px,10.8vw,164px)/.93 Georgia,'Times New Roman',serif; letter-spacing:-.065em; }
 .home-actions { display:flex; gap:12px; margin-top:48px; pointer-events:auto; }
-.home-actions button { display:flex; align-items:center; justify-content:space-between; width:158px; min-height:51px; padding:0 18px; border:1px solid #273d3240; border-radius:3px; font-size:12px; background:#eeede599; transition:background .18s,color .18s; }
+.home-actions button { display:flex; align-items:center; justify-content:space-between; width:158px; min-height:51px; padding:0 18px; border:1px solid #273d3240; border-radius:3px; font-size:12px; background:var(--paper-translucent); transition:background .18s,color .18s; }
 .home-actions svg { width:17px; height:17px; margin-left:24px; }
-.home-actions button:hover { background:#e2e4d8; color:var(--ink); }
-.home-actions #home-explore { background:var(--ink); color:#f6f4eb; border-color:var(--ink); }
-.home-actions #home-explore:hover { background:#405845; border-color:#405845; }
+.home-actions button:hover { background:var(--surface-hover); color:var(--ink); }
+.home-actions #home-explore { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+.home-actions #home-explore:hover { background:var(--primary-hover); border-color:var(--primary-hover); }
 .home-mode #app { display:none; }
 @media(max-width:740px) {
   #home-art { inset:0 0 39%; }
