@@ -1,0 +1,67 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {lessons} from '../src/lessons.js';
+import {visualActivities} from '../src/lesson-practice/visual-data.js';
+import {extraByLesson} from '../src/lesson-practice/questions.js';
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:5173/';
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const checks=[],errors=[];const check=s=>{checks.push(s);console.log('PASS',s);};
+const watch=p=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&!m.text().includes('Failed to create WebGL'))errors.push(m.text());});};
+const go=async(p,id)=>{await p.goto(`${base}#lesson=${id}&step=0`);await p.waitForFunction(id=>document.querySelector('#lesson-panel')?.dataset.stepKey?.startsWith(id+'/'),id);};
+const mode=async(p,name)=>{await p.locator('#diagram-tab').click();await p.locator(`[data-visual-mode=${name}]`).click();};
+const place=async(p,piece,slot,diagram=false)=>{await p.locator(`[data-visual-piece=p${piece}]`).click();await p.locator(`${diagram?'g':'button'}[data-visual-slot=s${slot}]`).click();};
+await mkdir('test-results/visual-practice',{recursive:true});
+try{
+ const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),p=await context.newPage();watch(p);
+ await go(p,'topic-2-1');await mode(p,'label');
+ assert.equal(await p.locator('[data-visual-check]').isDisabled(),true);assert.equal(await p.locator('#visual-feedback').isHidden(),true);
+ assert.equal(await p.locator('[data-visual-reveal]').count(),0);
+ // Keyboard selection and placement directly on the vector diagram.
+ await p.locator('[data-visual-piece=p1]').focus();await p.keyboard.press('Enter');await p.locator('g[data-visual-slot=s0]').focus();await p.keyboard.press('Space');
+ for(let i=1;i<4;i++)await place(p,(i+1)%4,i,true);
+ assert.equal(await p.locator('[data-result]').count(),0);await p.locator('[data-visual-check]').click();assert.match(await p.locator('#visual-feedback').textContent(),/0 of 4/);
+ for(let i=0;i<4;i++)await place(p,i,i,true);
+ await p.locator('[data-visual-check]').click();assert.match(await p.locator('#visual-feedback').textContent(),/4 of 4/);assert.match(await p.locator('.visual-history').textContent(),/first: 0\/4/);
+ await p.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await p.screenshot({path:'test-results/visual-practice/label-desktop.png'});
+ await p.reload();await mode(p,'label');assert.match(await p.locator('#visual-feedback').textContent(),/4 of 4/);assert.match(await p.locator('.visual-history').textContent(),/2 checked attempts/);
+ check('Diagram placement supports keyboard input; answers stay hidden before checking and original mistakes survive correction/reload');
+ await p.locator('#read-tab').click();await p.locator('#process-range').evaluate(e=>{e.value='.42';e.dispatchEvent(new Event('input',{bubbles:true}));});
+ const progress=await p.locator('#process-range').inputValue();await mode(p,'build');
+ assert.equal(await p.locator('#scene').getAttribute('data-model'),'lesson-puzzle');assert.equal(await p.locator('#lesson-player-slot').isVisible(),false);
+ await p.locator('[data-visual-piece=p0]').click();await p.locator('.view-labels:not([hidden]) .hotspot[aria-label="Place selected piece at position 1"]').click();
+ assert.match(await p.locator('button[data-visual-slot=s0]').textContent(),/Bound ribosome/);
+ for(let i=1;i<4;i++)await place(p,i,i);
+ await p.locator('[data-visual-check]').click();assert.match(await p.locator('#visual-feedback').textContent(),/4 of 4/);
+ await p.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await p.screenshot({path:'test-results/visual-practice/build-desktop.png'});
+ await p.locator('#read-tab').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'lesson-lab');assert.equal(await p.locator('#process-range').inputValue(),progress);
+ await mode(p,'build');await p.locator('#lesson-next').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'lesson-lab');assert.match(await p.locator('#lesson-counter').textContent(),/2 \/ 6/);
+ check('3D position controls assemble the model; changing tabs or steps restores the original model and animation position');
+ await go(p,'replication');await p.locator('#check-tab').click();await p.locator('[data-question-nav="1"]').click();
+ const q=extraByLesson.replication,wrong=q.options.findIndex(o=>o.id!==q.correct),correct=q.options.findIndex(o=>o.id===q.correct);
+ assert.equal(await p.locator('#quick-feedback').isHidden(),true);await p.locator(`[data-quick-choice="${wrong}"]`).click();assert.match(await p.locator('#quick-feedback').textContent(),/Review the concept/);
+ await p.locator('[data-question-retry]').click();await p.locator(`[data-quick-choice="${correct}"]`).click();assert.match(await p.locator('#quick-feedback').textContent(),/First attempt: needs review · 2 attempts/);
+ await p.reload();await p.locator('#check-tab').click();await p.locator('[data-question-nav="1"]').click();assert.match(await p.locator('#quick-feedback').textContent(),/First attempt: needs review · 2 attempts/);
+ check('Additional questions reveal option-specific feedback on submission and keep the first attempt through retries/reload');
+ if(!process.env.SKIP_COVERAGE)for(const l of lessons){
+  await go(p,l.id);await mode(p,'label');assert.equal(await p.locator('.visual-bank button').count(),4);assert.equal(await p.locator('g[data-visual-slot]').count(),4);
+  assert.equal(await p.locator('.visual-task-heading h3').textContent(),visualActivities[l.id].title);
+  await p.locator('[data-visual-mode=build]').click();assert.equal(await p.locator('#scene').getAttribute('data-model'),'lesson-puzzle');
+  assert.equal(await p.locator('.view-labels:not([hidden]) .hotspot').count(),4);
+  await p.locator('#check-tab').click();assert.equal(await p.locator('#check-pane').isVisible(),true,l.id+' returns from construction');await p.locator('[data-question-nav="1"]').click();assert.equal(await p.locator('#inline-question').textContent(),extraByLesson[l.id].prompt);
+  if(['topic-1-7','topic-5-1','topic-6-2','topic-8-5'].includes(l.id))console.log('COVERED',l.id);
+ }
+ if(!process.env.SKIP_COVERAGE)check('All 67 lessons mount both visual activities, construct every 3D piece, and expose their additional question');
+ await p.waitForFunction(()=>document.querySelector('.offline-state')?.dataset.state==='ready',null,{timeout:45000});await context.setOffline(true);await p.reload();await go(p,'replication');await p.locator('#check-tab').click();await p.locator('[data-question-nav="1"]').click();assert.match(await p.locator('#quick-feedback').textContent(),/First attempt: needs review/);await mode(p,'build');await place(p,0,0);await p.reload();await mode(p,'build');assert.match(await p.locator('button[data-visual-slot=s0]').textContent(),/Parental templates/);await context.setOffline(false);
+ check('Previously cached activities and questions work offline and retain progress');await context.close();
+ const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'}),m=await mobile.newPage();watch(m);await go(m,'topic-6-2');await mode(m,'label');await m.locator('[data-visual-piece=p0]').tap();await m.locator('g[data-visual-slot=s0]').tap();
+ assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await m.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await m.screenshot({path:'test-results/visual-practice/label-phone.png'});await mode(m,'build');await m.locator('[data-visual-piece=p0]').tap();await m.locator('.view-labels:not([hidden]) .hotspot[aria-label="Place selected piece at position 1"]').tap();await m.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await m.screenshot({path:'test-results/visual-practice/build-phone.png'});
+ assert.equal(await m.evaluate(()=>{const c=document.querySelector('#scene canvas').getBoundingClientRect(),p=document.querySelector('#lesson-panel').getBoundingClientRect();return c.height>130&&c.bottom<=p.top&&document.documentElement.scrollWidth<=innerWidth;}),true);
+ await m.setViewportSize({width:320,height:740});assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await mobile.close();check('Touch labeling and 3D placement work on phones without horizontal overflow or covering the model');
+ const fallback=await browser.newContext({viewport:{width:1100,height:900},reducedMotion:'reduce'}),f=await fallback.newPage();
+ await f.addInitScript(()=>{const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){if(type.includes('webgl'))return null;return get.call(this,type,...args);};Object.defineProperty(window,'localStorage',{get(){throw new Error('Storage blocked for test');}});});
+ f.on('pageerror',e=>errors.push(e.message));await go(f,'replication');await mode(f,'build');assert.equal(await f.locator('.visual-board').isVisible(),true);for(let i=0;i<4;i++)await place(f,i,i,true);await f.locator('[data-visual-check]').click();assert.match(await f.locator('#visual-feedback').textContent(),/4 of 4/);assert.equal(await f.locator('#visual-practice .practice-save-status').isVisible(),true);
+ await f.locator('#check-tab').click();await f.locator('[data-question-nav="1"]').click();await f.locator(`[data-quick-choice="${correct}"]`).click();assert.equal(await f.locator('#quick-feedback').isVisible(),true);assert.equal(await f.locator('#check-pane .practice-save-status').isVisible(),true);await fallback.close();check('Without WebGL or storage, 2D assembly and question feedback remain usable with a visible save-status message');
+ assert.deepEqual(errors,[]);check('No application, shader or console errors');
+ await writeFile('test-results/visual-practice/report.json',JSON.stringify({checks,errors},null,2));
+}finally{await browser.close();}

@@ -1,5 +1,6 @@
-import {conceptQuestions} from './practice/concepts.js';
-import {loadPractice,savePractice,practiceRecord,submitPractice,recordKey} from './practice/progress.js';
+import {createLessonQuestions} from './lesson-practice/question-ui.js';
+import {createVisualPractice} from './lesson-practice/visual-ui.js';
+import {visualActivities} from './lesson-practice/visual-data.js';
 import {activities,activityMarkup,diagramSVG,loadExperiments,saveExperiments,experimentResult} from './lesson-activities.js';
 import {lessonById,checkpoints,lessonKey} from './lessons.js';
 import {loadProgress,saveProgress,beginLesson,answerStep,isAnswered,finishLesson,reviewItems,recordReview} from './lesson-progress.js';
@@ -7,7 +8,7 @@ import {esc} from './node-detail.js';
 
 export function createLessonUI(api){
  const $=s=>document.querySelector(s);let storage;try{storage=localStorage;}catch{}
- let conceptProgress=loadPractice(storage),conceptPersistent=!!storage;
+ let visualUI=null,puzzleScene=null;
  let labData=loadExperiments(storage),running=null,lastDiagram='';
  let progress=loadProgress(storage),active=null,stepIndex=0,reviewQueue=[],reviewIndex=0,reviewAnswers={},revealed=new Set(),lastCue='',persistent=!!storage;
  const player=$('#process-panel'),viewer=$('#viewer');
@@ -24,14 +25,13 @@ export function createLessonUI(api){
  const step=()=>active==='review'?reviewQueue[reviewIndex]?.step:lesson()?.steps[stepIndex];
  const key=()=>lesson()&&step()?lessonKey(lesson(),step()):'';
  const answer=()=>active==='review'?reviewAnswers[key()]:progress.lessons[active]?.answers[step()?.id];
- const canPlay=()=>active!=='review'&&['explain','observe','experiment'].includes(step()?.type)&&!!step()?.view.process;
+ const canPlay=()=>!puzzleScene&&active!=='review'&&['explain','observe','experiment'].includes(step()?.type)&&!!step()?.view.process;
  const changed=()=>api.onChange?.();
  const savePosition=()=>{if(active&&active!=='review'){progress=beginLesson(progress,active,stepIndex);persist();}};
 
  function openCatalog(){savePosition();api.openDashboard();}
  function start(id,{step:requested=null}={}){
   const l=lessonById(id);if(!l)return false;
-  if(conceptPersistent)conceptProgress=loadPractice(storage);
   const saved=progress.lessons[id];
   active=id;stepIndex=Math.max(0,Math.min(l.steps.length-1,Number.isInteger(requested)?requested:saved?.finishedAt!==null&&saved?.finishedAt!==undefined?0:saved?.step||0));
   revealed=new Set();document.body.classList.add('lesson-mode');panel.hidden=false;$('#lesson-next').hidden=false;player.remove();$('#lesson-player-slot').append(player);
@@ -42,6 +42,7 @@ export function createLessonUI(api){
   active='review';reviewIndex=0;reviewAnswers={};revealed=new Set();document.body.classList.add('lesson-mode');panel.hidden=false;$('#lesson-next').hidden=false;$('#lesson-player-slot').append(player);api.closeOverlays();showStep();return true;
  }
  function showStep(){
+  visualUI?.destroy();visualUI=null;
   const s=step();if(!s)return;running=null;savePosition();lastCue='';lastDiagram='';
   api.navigate({...s.view,process:active==='review'?null:s.view.process,autoplay:canPlay()});
   api.scene.setPaused(true);renderCard();changed();$('#lesson-heading').focus({preventScroll:true});$('.lesson-scroll').scrollTop=0;
@@ -63,7 +64,7 @@ export function createLessonUI(api){
    const shown=revealed.has(key())||!!a?.rating;
    $('#lesson-content').innerHTML=`<p class="lesson-prompt">${esc(s.prompt)}</p><label class="sr-only" for="lesson-response">Your explanation</label><textarea id="lesson-response" rows="3" maxlength="2000" placeholder="Write your explanation before revealing the comparison…">${esc(a?.text||'')}</textarea><button id="lesson-reveal" ${shown?'hidden':''} ${(a?.text?.trim().length||0)<12?'disabled':''}>Compare your explanation</button>${shown?`<div class="lesson-rubric"><b>Check for these ideas</b><ul>${s.rubric.map(p=>`<li>${esc(p)}</li>`).join('')}</ul><details><summary>One possible explanation</summary><p>${esc(s.sample)}</p></details><div class="self-check" role="group" aria-label="Assess your explanation"><button data-rating="again" aria-pressed="${a?.rating==='again'}">I need more practice</button><button data-rating="ready" aria-pressed="${a?.rating==='ready'}">I included both ideas</button></div></div>`:''}`;
   }else{
-   $('#lesson-content').innerHTML=`<p>${esc(s.body)}</p>`;
+   $('#lesson-content').innerHTML=`<p>${esc(s.body)}</p>${canPlay()?'<div class="lesson-practice-links"><button data-open-visual>Label & build →</button><button data-open-practice>Practice questions →</button></div>':''}`;
   }
   $('#lesson-tabs').hidden=!canPlay();$('#lesson-tabs').innerHTML='';
   $('#lesson-content').hidden=false;$('#lesson-content').removeAttribute('role');$('#lesson-content').removeAttribute('aria-labelledby');
@@ -76,7 +77,8 @@ export function createLessonUI(api){
   if(canPlay()){
    labData[l.id]??={condition:activities[l.id].options[0].id,prediction:'',runs:[]};
    $('#lesson-live').innerHTML=activityMarkup(l.id,labData[l.id]);
-   renderConceptReview();
+   createLessonQuestions($('#check-pane'),l.id,storage);
+   visualUI=createVisualPractice({container:$('#visual-practice'),activity:visualActivities[l.id],storage,has3D:!!api.scene.renderer,onScene:showPuzzle,onRestore:restorePuzzle});
    $('#lesson-tabs').append($('#lesson-live .activity-tabs'));
    $('#experiment-pane .experiment-question').hidden=s.title===activities[l.id].prompt;
    $('#lesson-content').setAttribute('role','tabpanel');$('#lesson-content').setAttribute('aria-labelledby','read-tab');
@@ -123,7 +125,7 @@ export function createLessonUI(api){
   $('#lesson-counter').textContent='Finished';$('#lesson-back').disabled=true;$('#lesson-next').hidden=true;changed();$('#lesson-heading').focus({preventScroll:true});
  }
  function exit({update=true}={}){
-  if(!active)return;running=null;savePosition();active=null;panel.hidden=true;document.body.classList.remove('lesson-mode');$('#lesson-next').hidden=false;viewer.append(player);api.onExit?.();if(update)changed();
+  if(!active)return;visualUI?.destroy();visualUI=null;running=null;savePosition();active=null;panel.hidden=true;document.body.classList.remove('lesson-mode');$('#lesson-next').hidden=false;viewer.append(player);api.onExit?.();if(update)changed();
  }
  function renderRuns(){
   const target=$('#experiment-history');if(!target||!lesson())return;
@@ -131,6 +133,7 @@ export function createLessonUI(api){
   target.innerHTML=runs.length?`<table class="experiment-results"><caption>Recent runs · same starting conditions</caption><thead><tr><th>Condition</th><th>Result</th></tr></thead><tbody>${runs.map(r=>`<tr><td>${esc(activities[id].options.find(o=>o.id===r.condition).label)}</td><td>${esc(r.result)}<details><summary>Your prediction</summary><p>${esc(r.prediction||'No prediction recorded.')}</p></details></td></tr>`).join('')}</tbody></table>`:'';
  }
  function selectActivity(name,focus=false){
+  visualUI?.setVisible(name==='diagram');
   $('#lesson-live').hidden=name==='read';panel.dataset.activity=name;
   for(const button of panel.querySelectorAll('[data-activity-tab]')){
    const selected=button.dataset.activityTab===name;button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1;
@@ -164,12 +167,23 @@ export function createLessonUI(api){
    saveExperiments(storage,labData);running=null;$('#experiment-status').textContent=`Run complete. ${result}`;renderRuns();
   }
  }
- function renderConceptReview(){
-  const check=activities[lesson()?.id]?.check,q=conceptQuestions.find(q=>q.id===check?.id),r=q?conceptProgress.records[recordKey(q)]:null;
-  if(!r?.reviewing||!$('#quick-feedback'))return;
-  const index=q.options.findIndex(o=>o.id===r.choice);if(index<0)return;
-  for(const b of panel.querySelectorAll('[data-quick-choice]'))b.setAttribute('aria-pressed',String(Number(b.dataset.quickChoice)===index));
-  $('#quick-feedback').hidden=false;$('#quick-feedback').textContent=(index===check.correct?'Correct. ':'Review the concept. ')+check.feedbacks[index]+(conceptPersistent?'':' Progress could not be saved on this device.');
+ function showPuzzle(activity,placements,selected,correct){
+  const scene=api.scene;
+  if(!puzzleScene){
+   running=null;
+   puzzleScene={focus:scene.focusDefinition,process:scene.process,at:scene.processProgress,playing:scene.processPlaying,options:{...scene.experimentOptions},environment:scene.environment,labels:scene.labelsVisible,camera:scene.camera?.position.clone(),target:scene.controls?.target.clone()};
+   scene.focus({id:'lesson-puzzle',data:{id:`${activity.id}@${activity.version}`,activity}});scene.setPaused(true);scene.setLabels(true);
+  }
+  panel.dataset.visualWorkspace='true';
+  scene.renderer?.domElement.setAttribute('aria-label','3D assembly workspace. Select a piece, then a numbered position. The Visual lab also provides keyboard controls.');
+  scene.activeView?.processRig?.place?.(placements,selected,correct);
+ }
+ function restorePuzzle(){
+  if(!puzzleScene)return;
+  const saved=puzzleScene,scene=api.scene;puzzleScene=null;delete panel.dataset.visualWorkspace;
+  scene.renderer?.domElement.setAttribute('aria-label','3D biology model. Drag to rotate; scroll or pinch to change scale.');
+  scene.focus(saved.focus);scene.environment=saved.environment;scene.setProcess(saved.process);scene.experimentOptions={...saved.options};scene.seekProcess(saved.at);scene.playProcess(saved.playing);scene.setLabels(saved.labels);scene.setPaused(true);
+  if(saved.camera)scene.camera.position.copy(saved.camera);if(saved.target)scene.controls.target.copy(saved.target);
  }
  panel.addEventListener('keydown',event=>{
   const tab=event.target.closest('[data-activity-tab]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
@@ -181,8 +195,9 @@ export function createLessonUI(api){
  $('#lesson-stage-back').onclick=()=>selectStage(Number($('#lesson-stage-select').value)-1);
  $('#lesson-stage-next').onclick=()=>selectStage(Number($('#lesson-stage-select').value)+1);
  panel.addEventListener('click',event=>{
+  if(event.target.closest('[data-open-visual]')){selectActivity('diagram');panel.querySelector('[data-visual-mode=label]').click();return;}
+  if(event.target.closest('[data-open-practice]')){selectActivity('check',true);return;}
   const tab=event.target.closest('[data-activity-tab]');if(tab){selectActivity(tab.dataset.activityTab);return;}
-  const quick=event.target.closest('[data-quick-choice]');if(quick){const c=activities[lesson().id].check,q=conceptQuestions.find(q=>q.id===c.id);if(q){const r=practiceRecord(conceptProgress,q);r.reviewing=false;r.choice=q.options[Number(quick.dataset.quickChoice)].id;submitPractice(conceptProgress,q);conceptPersistent=savePractice(storage,conceptProgress);renderConceptReview();}return;}
   if(event.target.id==='experiment-run'){runExperiment();return;}
   if(event.target.id==='experiment-reset'){running=null;api.scene.playProcess(false);api.scene.seekProcess(0);$('#experiment-status').textContent='Reset to the same starting conditions.';return;}
 
@@ -195,5 +210,5 @@ export function createLessonUI(api){
  panel.addEventListener('input',event=>{if(event.target.id==='experiment-prediction'){labData[lesson().id].prediction=event.target.value;saveExperiments(storage,labData);return;}if(event.target.id==='lesson-response'){record({text:event.target.value,rating:null});$('#lesson-reveal').disabled=event.target.value.trim().length<12;$('#lesson-next').disabled=true;for(const button of panel.querySelectorAll('[data-rating]'))button.setAttribute('aria-pressed','false');}});
  panel.addEventListener('change',event=>{if(event.target.id==='experiment-condition'){running=null;api.scene.playProcess(false);labData[lesson().id].condition=event.target.value;saveExperiments(storage,labData);$('#experiment-status').textContent='Choose Run experiment to apply this condition.';return;}if(event.target.id==='lesson-environment'){running=null;api.scene.setEnvironment(event.target.value);$('#selection-environment').value=event.target.value;api.scene.playProcess(api.canAutoplay());}if(event.target.id==='lesson-skill'&&event.target.value){api.openNode(event.target.value);event.target.value='';}});
  $('#lesson-catalog-button').onclick=openCatalog;$('#lesson-exit').onclick=()=>exit();$('#lesson-next').onclick=next;$('#lesson-back').onclick=back;
- return {openCatalog,start,startReview,exit,onFrame,next,back,canPlay,get persistent(){return persistent;},get progress(){return progress;},get active(){return active;},get stepIndex(){return stepIndex;},has:id=>!!lessonById(id)};
+ return {handleVisualPick:selection=>visualUI?.pick(selection)||false,openCatalog,start,startReview,exit,onFrame,next,back,canPlay,get persistent(){return persistent;},get progress(){return progress;},get active(){return active;},get stepIndex(){return stepIndex;},has:id=>!!lessonById(id)};
 }

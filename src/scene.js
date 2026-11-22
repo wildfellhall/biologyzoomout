@@ -1,3 +1,4 @@
+import {makeLessonPuzzle} from './lesson-practice/model.js';
 import {makeCourseModel} from './course/models.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -75,7 +76,7 @@ export class BiologyScene extends ModelBuilders {
       const hit=this.pick(event);this.clearHover();
       if(!hit)return;
       const data=hit.object.userData;
-      if(data.inspect||data.feature){
+      if(data.inspect||data.feature||data.lessonPiece||data.lessonSlot){
         this.hovered=hit.object;const material=hit.object.material;
         if(material.emissive){this.hoverEmissive=material.emissive.clone();material.emissive.set('#61784c');material.emissiveIntensity=.2;}
         this.hoverLabel.replaceChildren();const name=document.createElement('strong'),explanation=document.createElement('span');
@@ -112,7 +113,7 @@ export class BiologyScene extends ModelBuilders {
     this.raycaster.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),this.camera);
     return this.raycaster.intersectObjects(this.activeView.root.children,true).find(item=>{
       let o=item.object;while(o){if(!o.visible)return false;o=o.parent;}
-      return item.object.userData.feature||item.object.userData.inspect||item.object.userData.node||item.object.userData.atom;
+      return item.object.userData.lessonPiece||item.object.userData.lessonSlot||item.object.userData.feature||item.object.userData.inspect||item.object.userData.node||item.object.userData.atom;
     });
   }
   clearHover(){if(this.hovered?.material.emissive&&this.hoverEmissive)this.hovered.material.emissive.copy(this.hoverEmissive);this.hovered=null;if(this.hoverLabel)this.hoverLabel.hidden=true;if(this.renderer)this.renderer.domElement.style.cursor='grab';}
@@ -175,7 +176,7 @@ export class BiologyScene extends ModelBuilders {
     const bounds=this.process?this.activeView?.processBounds:this.activeView?.baseBounds;
     const extent=bounds?.size?.clone().multiplyScalar(3.1/bounds.radius);
     const detailed=['nucleosome','chromatin','mitotic-cell','meiotic-cell','rough-er','smooth-er','golgi'].includes(first?.id);
-    const distance=(first?.id==='lesson-lab'||detailed)&&extent
+    const distance=(['lesson-lab','lesson-puzzle'].includes(first?.id)||detailed)&&extent
       ?8*(this.activeView?.processRig?.cameraScale||1)*Math.max(1,(extent.y+.2*extent.z)/4.5,(extent.x+.2*extent.z)/(4.5*this.camera.aspect))
       :11.5*Math.max(1,widthFraction/this.camera.aspect);
     this.camera.position.normalize().multiplyScalar(distance);
@@ -215,7 +216,7 @@ export class BiologyScene extends ModelBuilders {
     const element=document.createElement(selection.processOnly?'span':'button');
     element.className='hotspot'; element.type='button'; element.textContent=text;
     if(selection.processOnly)element.classList.add('process-label');
-    if(!selection.processOnly)element.setAttribute('aria-label',`${text}: ${selection.inspect?'inspect in 3D':'open learning node'}`);
+    if(!selection.processOnly)element.setAttribute('aria-label',selection.lessonSlot?`Place selected piece at position ${text}`:`${text}: ${selection.inspect?'inspect in 3D':'open learning node'}`);
     element.onclick=()=>this.onSelect(selection);
     this.buildLabelLayer.append(element);
     this.annotations.push({element,position:new THREE.Vector3(...position),processOnly:selection.processOnly,after:selection.after||0,visibleWhen:selection.visibleWhen});
@@ -228,7 +229,8 @@ export class BiologyScene extends ModelBuilders {
     this.buildLabelLayer=document.createElement('div');
     this.buildLabelLayer.className='view-labels';
     this.labelLayer.append(this.buildLabelLayer);
-    if(id==='lesson-lab')makeCourseModel.call(this,data);
+    if(id==='lesson-puzzle')makeLessonPuzzle.call(this,data);
+    else if(id==='lesson-lab')makeCourseModel.call(this,data);
     else if (pathwayBuilders[id]) pathwayBuilders[id].call(this);
     else if (id==='thylakoid') makeThylakoid.call(this);
     else if (id==='molecules') this.makeMolecule(data);

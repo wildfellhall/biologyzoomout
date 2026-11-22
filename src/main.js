@@ -119,6 +119,7 @@ try {
   let scene,lessonUI,homeUI,dashboardUI,practiceUI,startUI,searchUI,lessonNavigation=false;
   scene = new BiologyScene($('#scene'), {
     onSelect: selection => {
+      if(lessonUI?.handleVisualPick(selection))return;
       if (selection.feature) openFieldNote(selection.feature);
       else if (selection.inspect) focusStructure(selection.inspect);
       else if (selection.node) openNode(selection.node);
