@@ -1,4 +1,4 @@
-import {showLessonPart} from './ui-helpers.mjs';
+import {showLessonPart,waitForOffline} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -53,7 +53,7 @@ try{
   if(['topic-1-7','topic-5-1','topic-6-2','topic-8-5'].includes(l.id))console.log('COVERED',l.id);
  }
  if(!process.env.SKIP_COVERAGE)check('All 67 lessons mount both visual activities, construct every 3D piece, and expose their additional question');
- await p.waitForFunction(()=>document.querySelector('.offline-state')?.dataset.state==='ready',null,{timeout:45000});await context.setOffline(true);await p.reload();await go(p,'replication');await showLessonPart(p,'practice-2');assert.match(await p.locator('#quick-feedback').textContent(),/First attempt: needs review/);await mode(p,'build');await place(p,0,0);await p.reload();await mode(p,'build');assert.match(await p.locator('button[data-visual-slot=s0]').textContent(),/Parental templates/);await context.setOffline(false);
+ await waitForOffline(p);await context.setOffline(true);await p.reload();await go(p,'replication');await showLessonPart(p,'practice-2');assert.match(await p.locator('#quick-feedback').textContent(),/First attempt: needs review/);await mode(p,'build');await place(p,0,0);await p.reload();await mode(p,'build');assert.match(await p.locator('button[data-visual-slot=s0]').textContent(),/Parental templates/);await context.setOffline(false);
  check('Previously cached activities and questions work offline and retain progress');await context.close();
  const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'}),m=await mobile.newPage();watch(m);await go(m,'topic-6-2');await mode(m,'label');await m.locator('[data-visual-piece=p0]').tap();await m.locator('g[data-visual-slot=s0]').tap();
  assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await m.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await m.screenshot({path:'test-results/visual-practice/label-phone.png'});await mode(m,'build');await m.locator('[data-visual-piece=p0]').tap();await m.locator('.view-labels:not([hidden]) .hotspot[aria-label="Place selected piece at position 1"]').tap();await m.locator('.lesson-scroll').evaluate(e=>e.scrollTop=0);await m.screenshot({path:'test-results/visual-practice/build-phone.png'});

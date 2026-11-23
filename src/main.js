@@ -4,7 +4,7 @@ import './practice/styles.css';
 import {createPracticeUI} from './practice/ui.js';
 import './styles.css';
 import './lessons.css';
-import {mountInstallUI} from './install-app.js';
+import {startOfflineCache} from './offline.js';
 import {createHome} from './home.js';
 import { BiologyScene, elements } from './scene.js';
 import { stages, modelInfo, homeStage, nodesAtStage, formulaHTML } from './content.js';
@@ -630,7 +630,7 @@ try {
   });
   searchUI=createSearch({molecules,ontology,context:()=>state.choosing?$('#start-context').value:state.organism});
   $('#search-toggle').onclick=()=>searchUI.open();
-  mountInstallUI();
+  startOfflineCache();
   updatePause();readHash();
   window.addEventListener('hashchange',readHash);
 } catch(error) {

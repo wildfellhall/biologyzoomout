@@ -34,9 +34,9 @@ try{
   }
   if(width>=1440)assert.equal(g.overflow,0,'Explanation fits without an artificial half-height limit');
   if(width<640){
-   const navigation=await p.locator('.lesson-topline').boundingBox(),install=await p.locator('#install-toggle').boundingBox();
+   const navigation=await p.locator('.lesson-topline').boundingBox(),search=await p.locator('#search-toggle').boundingBox();
    assert.ok(navigation.y+navigation.height<=g.canvas.y,'Phone navigation shares the top bar');
-   assert.ok(navigation.x+navigation.width<=install.x,'Navigation leaves room for app controls');
+   assert.ok(navigation.x+navigation.width<=search.x,'Navigation leaves room for search');
    assert.ok(g.read.height>=g.panel.height-80,'Phone reading area only reserves room for the footer');
   }
   await p.screenshot({path:`test-results/lesson-layout/read-${width}x${height}.png`});

@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {showLessonPart} from './ui-helpers.mjs';
+import {showLessonPart,waitForOffline} from './ui-helpers.mjs';
 const base=process.env.TEST_BASE_URL||'http://127.0.0.1:5173/';
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const checks=[],errors=[];const check=s=>{checks.push(s);console.log('PASS',s);};
@@ -47,7 +47,7 @@ try{
  check('Complete focused and course lessons use Continue through all 11 parts, with assessment gating, checked puzzles, feedback, Back and precise reload/resume');
  await p.goto(base+'#lesson=topic-2-1&part=label');await p.locator('#visual-practice').waitFor();await p.locator('[data-visual-piece=p2]').click();await p.locator('g[data-visual-slot=s0]').click();
  await p.locator('#lesson-catalog-button').click();await p.locator('[data-resume="topic-2-1"]').click();assert.equal(await current(p),'label');assert.match(await p.locator('button[data-visual-slot=s0]').textContent(),/Golgi/);
- await p.waitForFunction(()=>document.querySelector('.offline-state')?.dataset.state==='ready',null,{timeout:45000});await context.setOffline(true);await p.reload();await p.locator('#visual-practice').waitFor();assert.equal(await current(p),'label');await fillVisual(p);await p.locator('#lesson-next').click();await p.locator('#lesson-next').click();assert.equal(await current(p),'build');await context.setOffline(false);
+ await waitForOffline(p);await context.setOffline(true);await p.reload();await p.locator('#visual-practice').waitFor();assert.equal(await current(p),'label');await fillVisual(p);await p.locator('#lesson-next').click();await p.locator('#lesson-next').click();assert.equal(await current(p),'build');await context.setOffline(false);
  check('Dashboard resume and offline continuation retain the exact activity and partial construction');await context.close();
  const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'}),m=await mobile.newPage();watch(m);
  await m.goto(base+'#lesson=replication&part=label');await m.locator('#visual-practice').waitFor();await m.locator('[data-visual-piece=p0]').tap();await m.locator('g[data-visual-slot=s0]').tap();

@@ -3,6 +3,18 @@ export async function choosePath(page,id){
  await page.locator('#path-select').selectOption(id);
  await page.locator('#explore-path').click();
 }
+export async function waitForOffline(page){
+ await page.waitForFunction(async()=>{
+  const registration=await navigator.serviceWorker.getRegistration();
+  if(!registration?.active)return false;
+  return new Promise(resolve=>{
+   const channel=new MessageChannel();
+   const timer=setTimeout(()=>{channel.port1.close();resolve(false);},2000);
+   channel.port1.onmessage=event=>{clearTimeout(timer);channel.port1.close();resolve(event.data.ready===true);};
+   registration.active.postMessage({type:'OFFLINE_STATUS'},[channel.port2]);
+  });
+ },null,{timeout:45000});
+}
 export async function chooseContext(page,id){
  await page.locator('#paths-toggle').click();
  await page.locator('#organism-select').selectOption(id);

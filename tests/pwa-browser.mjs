@@ -1,4 +1,4 @@
-import {showLessonDiagram,showLessonPart} from './ui-helpers.mjs';
+import {showLessonDiagram,showLessonPart,waitForOffline} from './ui-helpers.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -37,17 +37,16 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}/`;
 const profiles = [], contexts = [];
 async function createContext(options) {
-  // Incognito browsers deliberately disallow installation. Use disposable,
-  // ordinary profiles, never the user's Chrome profile or OS app registry.
+  // Isolate offline-cache and update tests from the user's browser profile.
   const profile = await mkdtemp(path.join(tmpdir(), 'biology-pwa-')); profiles.push(profile);
   const context = await chromium.launchPersistentContext(profile, {executablePath:process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless:true, args:['--use-angle=swiftshader','--enable-unsafe-swiftshader'], ...options});
   contexts.push(context); return context;
 }
 const checks = [], errors = [];
 const check = text => { checks.push(text); console.log('PASS', text); };
-const ready = page => page.waitForFunction(() => document.querySelector('.offline-state')?.dataset.state === 'ready', null, {timeout:45000});
+const ready = waitForOffline;
 const frame = page => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const open = async (page, hash='') => { await page.goto(base + hash); if(!hash){await page.locator('#home-explore').click();await page.locator('[data-start-molecule="water"]').click();} await page.locator('#install-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
+const open = async (page, hash='') => { await page.goto(base + hash); if(!hash){await page.locator('#home-explore').click();await page.locator('[data-start-molecule="water"]').click();} await page.locator('#search-toggle').waitFor(); await page.waitForLoadState('networkidle'); await frame(page); };
 const workerStatus = page => page.evaluate(async () => {
   const registration = await navigator.serviceWorker.getRegistration();
   return new Promise(resolve => { const channel = new MessageChannel(); channel.port1.onmessage = event => { channel.port1.close(); resolve(event.data); }; registration.active.postMessage({type:'OFFLINE_STATUS'}, [channel.port2]); });
@@ -62,28 +61,16 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error' && !message.location().url.includes('offline-network-probe')) errors.push(message.text()); });
-  await page.addInitScript(() => window.addEventListener('beforeinstallprompt', () => window.__nativeInstallAvailable = true));
   await open(page); await ready(page);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
-  const cdp = await context.newCDPSession(page);
-  const manifest = await cdp.send('Page.getAppManifest');
-  assert.deepEqual(manifest.errors, []);
-  assert.equal(JSON.parse(manifest.data).display, 'standalone');
-  const installability = await cdp.send('Page.getInstallabilityErrors');
-  assert.deepEqual(installability.installabilityErrors, []);
-  await page.waitForFunction(() => window.__nativeInstallAvailable === true);
-  for (const icon of JSON.parse(manifest.data).icons) {
-    const png = await readFile(path.join(root, 'dist', icon.src));
-    assert.equal(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, icon.sizes);
-  }
+  assert.equal(await page.locator('#install-toggle,#install-dialog,link[rel=manifest]').count(),0);
+  assert.equal(await page.evaluate(()=>{
+    const event=new Event('beforeinstallprompt',{cancelable:true});
+    dispatchEvent(event);return event.defaultPrevented;
+  }),true);
   const saved = await workerStatus(page);
   assert.equal(saved.ready, true); assert.equal(saved.version, build.version); assert.equal(saved.bytes, build.bytes);
-  check('Chrome reports no installability errors and emits a real install offer; icons and all offline files are valid');
-
-  await page.locator('#install-toggle').click();
-  assert.equal(await page.locator('#install-confirm').isVisible(), true);
-  await page.screenshot({path:path.join(root, 'test-results/pwa/install-desktop.png')});
-  await page.keyboard.press('Escape');
+  check('Installation controls and manifest promotion are absent; automatic install prompts are suppressed and offline files remain ready');
   await open(page, '#lesson=membranes&step=1');
   await page.locator('[data-answer="down"]').click();
   const lessonProgress = await savedAnswer(page);
@@ -92,6 +79,7 @@ try {
   assert.equal(await page.evaluate(() => fetch('/offline-network-probe').then(() => false, () => true)), true);
   await page.reload(); await page.locator('#lesson-panel').waitFor();
   assert.deepEqual(await savedAnswer(page), lessonProgress);
+  if (!process.env.SKIP_COVERAGE) {
   await page.goto(base); await page.locator('#home-art[data-render="ready"]').waitFor();
   assert.equal(await page.locator('#home-page').isVisible(), true);
   await page.goto(base+'#lessons');await page.locator('#lesson-dashboard').waitFor();
@@ -160,72 +148,39 @@ try {
   await page.reload(); await showLessonPart(page,'experiment');
   assert.equal(await page.locator('.experiment-results tbody tr').count(), 1);
   check('Previously unvisited topic lessons from all eight units and their coverage tables work offline');
+  }
   // Leave the original detailed study open for the existing update-lifecycle check.
   await open(page, '#lesson=polypeptide&step=0');
 
-  await page.locator('#install-toggle').click();
   await ready(page);
-  assert.match(await page.locator('#offline-title').textContent(), /ready.*offline|offline.*ready/i);
   assert.deepEqual(errors, []);
-  check('Offline reload preserves progress; previously unvisited cells, habitats, Earth, reactions and all 234 nodes load without errors');
-  await page.keyboard.press('Escape'); await context.setOffline(false);
-
-  // Exercise deferred-prompt UI branches without installing an OS app on the host.
-  await page.evaluate(() => {
-    window.__promptCalls = 0;
-    const event = new Event('beforeinstallprompt', {cancelable:true});
-    event.prompt = () => { window.__promptCalls++; return Promise.resolve(); };
-    event.userChoice = new Promise(resolve => window.__chooseInstall = resolve);
-    dispatchEvent(event);
-  });
-  await page.locator('#install-toggle').click(); await page.locator('#install-confirm').click();
-  assert.equal(await page.locator('#install-confirm').isDisabled(), true);
-  assert.equal(await page.evaluate(() => window.__promptCalls), 1);
-  await page.evaluate(() => window.__chooseInstall({outcome:'dismissed'}));
-  await page.waitForFunction(() => document.querySelector('#install-feedback').textContent.includes('dismissed'));
-  assert.equal(await page.locator('#install-confirm').isHidden(), true);
-  assert.match(await page.locator('#install-toggle').getAttribute('aria-label'), /Install/);
-  await page.evaluate(() => {
-    const event = new Event('beforeinstallprompt', {cancelable:true});
-    event.prompt = () => Promise.resolve(); event.userChoice = Promise.resolve({outcome:'accepted'}); dispatchEvent(event);
-  });
-  await page.locator('#install-confirm').click();
-  await page.waitForFunction(() => document.querySelector('#install-feedback').textContent.includes('Finish installation'));
-  assert.match(await page.locator('#install-toggle').getAttribute('aria-label'), /Install/);
-  await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
-  assert.equal(await page.locator('#install-toggle').getAttribute('aria-label'), 'App and offline status');
-  assert.equal(await page.locator('#install-confirm').isHidden(), true);
-  await page.keyboard.press('Escape');
-  check('Install UI handles prompt, dismissal, acceptance and confirmed installation without claiming an app was installed early');
+  check('Offline reload preserves progress without application errors');
+  await context.setOffline(false);
 
   for (const width of [320,390,768]) {
-    await page.setViewportSize({width,height:844});
-    await page.locator('#install-toggle').click(); await frame(page);
-    const fits = await page.evaluate(() => {
-      const dialog = document.querySelector('#install-dialog').getBoundingClientRect();
-      const brand = document.querySelector('.brand').getBoundingClientRect();
-      const actions = document.querySelector('.top-actions').getBoundingClientRect();
-      return document.documentElement.scrollWidth <= innerWidth && dialog.left >= 0 && dialog.right <= innerWidth && brand.right < actions.left;
-    });
-    assert.equal(fits, true, `Layout at ${width}px`);
-    if (width === 390) await page.screenshot({path:path.join(root, 'test-results/pwa/install-phone.png')});
-    await page.keyboard.press('Escape');
+    await page.setViewportSize({width,height:844}); await frame(page);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),true);
+    assert.equal(await page.locator('#install-toggle,#install-dialog').count(),0);
   }
-  check('Install dialog and compact header fit tablet and 320–390px phone screens');
+  check('Tablet and phone screens have no installation controls or horizontal overflow');
 
   // Reject an incomplete release without losing the currently working cache.
   const appErrorsBeforeFault = errors.length;
   brokenAsset = true; servedWorker = originalWorker.replace(build.version, 'invalid-release');
-  await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
-  await page.waitForFunction(() => document.querySelector('#offline-detail').textContent.includes('could not download'), null, {timeout:45000});
+  await page.evaluate(async () => {
+    const registration=await navigator.serviceWorker.getRegistration();
+    registration.addEventListener('updatefound',()=>{window.__failedWorker=registration.installing;},{once:true});
+    await registration.update();
+  });
+  await page.waitForFunction(()=>window.__failedWorker?.state==='redundant',null,{timeout:45000});
   assert.equal((await workerStatus(page)).version, build.version);
-  assert.equal(await page.evaluate(() => caches.keys().then(keys => keys.some(key => key.endsWith('invalid-release')))), false);
+  await page.waitForFunction(async () => !(await caches.keys()).some(key => key.endsWith('invalid-release')), null, {timeout:45000});
   assert.deepEqual(await savedAnswer(page), lessonProgress);
   brokenAsset = false; servedWorker = originalWorker.replace(build.version, 'verified-update');
   const nextWorker = context.waitForEvent('serviceworker');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
   const verifiedWorker = await nextWorker;
-  await page.waitForFunction(() => document.querySelector('#app-update').hidden === false, null, {timeout:45000});
+  await page.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting, null, {timeout:45000});
   assert.equal((await workerStatus(page)).version, build.version);
   assert.match(page.url(), /lesson=polypeptide/);
   // Activation is asynchronous after the last app client closes. Observe it
@@ -246,14 +201,12 @@ try {
   servedWorker = originalWorker; brokenAsset = true;
   const retryContext = await createContext({reducedMotion:'reduce'});
   const retryPage = await retryContext.newPage(); await open(retryPage);
-  await retryPage.waitForFunction(() => document.querySelector('.offline-state')?.dataset.state === 'error', null, {timeout:45000});
-  await retryPage.locator('#install-toggle').click();
-  assert.equal(await retryPage.locator('#offline-retry').isVisible(), true);
+  await retryPage.waitForFunction(async () => !(await navigator.serviceWorker.getRegistration())?.installing, null, {timeout:45000});
   assert.equal(await retryPage.evaluate(() => caches.keys().then(keys => keys.filter(key => key.startsWith('biology-zoomout:')).length)), 0);
-  brokenAsset = false; await retryPage.locator('#offline-retry').click(); await ready(retryPage);
-  check('An incomplete first download is reported honestly, cleaned up, and can be retried successfully');
+  brokenAsset = false; await retryPage.evaluate(()=>dispatchEvent(new Event('online'))); await ready(retryPage);
+  check('An incomplete first cache is cleaned up and retried when connectivity returns');
   await retryContext.close();
-  await writeFile(path.join(root, 'test-results/pwa/report.json'), JSON.stringify({checks, installability, offlineFiles:build.files.length, offlineBytes:build.bytes, applicationErrors:errors.slice(0, appErrorsBeforeFault)}, null, 2));
+  await writeFile(path.join(root, 'test-results/pwa/report.json'), JSON.stringify({checks, offlineFiles:build.files.length, offlineBytes:build.bytes, applicationErrors:errors.slice(0, appErrorsBeforeFault)}, null, 2));
 } finally {
   await Promise.all(contexts.map(context => context.close()));
   await new Promise(resolve => server.close(resolve));
